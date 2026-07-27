@@ -556,7 +556,10 @@
             </VerticalStackLayout>
         </ScrollView>
 
-        <VerticalStackLayout Grid.Row="2" Spacing="10">
+        <VerticalStackLayout
+            Grid.Row="2"
+            IsVisible="{Binding ShowImportActions}"
+            Spacing="10">
             <Label
                 IsVisible="{Binding HasMedia}"
                 FontSize="12"

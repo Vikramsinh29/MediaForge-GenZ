@@ -11,6 +11,7 @@ public sealed class HomeViewModel : BaseViewModel
     private bool _hasSelection;
     private bool _isBusy;
     private bool _isStatusVisible;
+    private bool _showImportActions = true;
     private bool _showWelcome = true;
     private string _importedCountLabel = "0 media files";
     private string _statusMessage = string.Empty;
@@ -21,6 +22,20 @@ public sealed class HomeViewModel : BaseViewModel
     {
         _mediaImportService = mediaImportService;
         Details = details;
+        Details.PropertyChanged += (_, eventArgs) =>
+        {
+            if (eventArgs.PropertyName == nameof(MediaDetailsViewModel.IsVisible))
+            {
+                RefreshPageChrome();
+            }
+        };
+        Details.Export.PropertyChanged += (_, eventArgs) =>
+        {
+            if (eventArgs.PropertyName == nameof(ExportPlanningViewModel.IsVisible))
+            {
+                RefreshPageChrome();
+            }
+        };
         ImportMediaCommand = new Command(
             async () => await ImportMediaAsync(),
             () => !IsBusy);
@@ -57,6 +72,12 @@ public sealed class HomeViewModel : BaseViewModel
     {
         get => _showWelcome;
         private set => SetProperty(ref _showWelcome, value);
+    }
+
+    public bool ShowImportActions
+    {
+        get => _showImportActions;
+        private set => SetProperty(ref _showImportActions, value);
     }
 
     public bool HasSelection
@@ -190,4 +211,7 @@ public sealed class HomeViewModel : BaseViewModel
         ClearSelectedCommand.ChangeCanExecute();
         ClearAllCommand.ChangeCanExecute();
     }
+
+    private void RefreshPageChrome() =>
+        ShowImportActions = !Details.IsVisible && !Details.Export.IsVisible;
 }

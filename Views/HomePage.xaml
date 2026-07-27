@@ -3,6 +3,7 @@
     x:Class="MediaForge.Universal.Views.HomePage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:coreModels="clr-namespace:MediaForge.GenZ.Core.Models;assembly=MediaForge.GenZ.Core"
     xmlns:viewModels="clr-namespace:MediaForge.Universal.ViewModels"
     x:DataType="viewModels:HomeViewModel"
     BackgroundColor="{StaticResource Canvas}">
@@ -386,14 +387,67 @@
                         </Border>
 
                         <Button
-                            IsEnabled="False"
+                            Command="{Binding Details.Export.QueuePlanCommand}"
                             Style="{StaticResource PrimaryButton}"
-                            Text="Conversion coming soon" />
+                            Text="Add plan to queue" />
                         <Label
                             HorizontalTextAlignment="Center"
                             FontSize="11"
-                            Text="No file will be created in this sprint."
+                            Text="Queue planning only · no file will be created."
                             TextColor="{StaticResource InkMuted}" />
+
+                        <VerticalStackLayout IsVisible="{Binding Details.Export.HasQueuedJobs}" Spacing="10">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Label FontAttributes="Bold" FontSize="17" Text="Export queue" TextColor="{StaticResource Ink}" />
+                                <Label
+                                    Grid.Column="1"
+                                    VerticalOptions="Center"
+                                    FontSize="12"
+                                    Text="{Binding Details.Export.QueueCountLabel}"
+                                    TextColor="{StaticResource InkMuted}" />
+                            </Grid>
+                            <VerticalStackLayout
+                                BindableLayout.ItemsSource="{Binding Details.Export.QueuedJobs}"
+                                Spacing="8">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="coreModels:ConversionJob">
+                                        <Border Style="{StaticResource QueueCard}">
+                                            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="10">
+                                                <Label
+                                                    FontAttributes="Bold"
+                                                    LineBreakMode="TailTruncation"
+                                                    MaxLines="1"
+                                                    Text="{Binding Plan.ProposedOutputFileName}"
+                                                    TextColor="{StaticResource Ink}" />
+                                                <Border
+                                                    Grid.Column="1"
+                                                    Padding="9,4"
+                                                    BackgroundColor="{StaticResource PrimarySoft}"
+                                                    StrokeThickness="0"
+                                                    StrokeShape="RoundRectangle 10">
+                                                    <Label
+                                                        FontAttributes="Bold"
+                                                        FontSize="10"
+                                                        Text="{Binding State}"
+                                                        TextColor="{StaticResource Primary}" />
+                                                </Border>
+                                                <Label
+                                                    Grid.Row="1"
+                                                    Grid.ColumnSpan="2"
+                                                    FontSize="11"
+                                                    Text="{Binding StatusMessage}"
+                                                    TextColor="{StaticResource InkMuted}" />
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
+                            <Label
+                                FontSize="11"
+                                LineHeight="1.3"
+                                Text="{Binding Details.Export.QueueMessage}"
+                                TextColor="{StaticResource InkMuted}" />
+                        </VerticalStackLayout>
                     </VerticalStackLayout>
                 </Border>
             </VerticalStackLayout>

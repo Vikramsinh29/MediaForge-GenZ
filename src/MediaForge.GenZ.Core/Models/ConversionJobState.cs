@@ -1,9 +1,10 @@
 namespace MediaForge.GenZ.Core.Models;
 
-public enum JobStatus
+public enum ConversionJobState
 {
-    Pending,
-    Converting,
+    Queued,
+    Preparing,
+    Processing,
     Completed,
     Failed,
     Cancelled

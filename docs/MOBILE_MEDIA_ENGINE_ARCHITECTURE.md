@@ -1,0 +1,126 @@
+# Mobile Media Engine Architecture
+
+## Status and scope
+
+Sprint 5 defines boundaries only. There is no engine implementation, native
+binary, output writer, or conversion execution in the repository.
+
+## Core contract boundary
+
+`MediaForge.GenZ.Core` owns platform-neutral intent and lifecycle:
+
+- `ExportPlan` is the validated, non-overwriting conversion intent.
+- `ConversionJob` snapshots that plan and tracks state and progress.
+- `IConversionJobQueue` enforces lifecycle transitions.
+- `ITranscoder` is the future engine adapter contract.
+- `IOutputStorage` owns temporary output and atomic finalisation contracts.
+
+Core must not reference MAUI, Android, iOS, a command-line syntax, native paths,
+FFmpeg types, file-picker types, or UI state.
+
+The valid job lifecycle is:
+
+```text
+Queued -> Preparing -> Processing -> Completed
+   |          |             |
+   +----------+-------------+----> Cancelled
+              +-------------+----> Failed
+```
+
+Completed, Failed, and Cancelled are terminal. A failed transition must include an
+error. Completed forces progress to 100%.
+
+## Android native adapter boundary
+
+A future Android adapter will implement `ITranscoder` using only the engine
+approved by `TRANSCODING_ENGINE_DECISION.md`. It will:
+
+- consume content/file descriptors supplied through the app's scoped access;
+- translate `ExportPlan` settings into typed native API calls;
+- report normalized progress through `IProgress<ConversionJobProgress>`;
+- observe `CancellationToken` and stop native work deterministically;
+- write only to the `TemporaryOutput` stream supplied by `IOutputStorage`;
+- return a neutral `ConversionExecutionResult`;
+- never choose the final destination or overwrite the source.
+
+JNI/NDK/vendor types must remain under the Android platform adapter and must never
+cross into core or view models.
+
+## Future iOS native adapter boundary
+
+The iOS adapter will implement the same contracts using an approved Apple-native
+or maintained mobile engine. AVFoundation and related Apple frameworks should be
+evaluated first for supported workflows.
+
+The adapter will use security-scoped/platform-approved inputs, map native progress
+and cancellation into core types, and write only to temporary output. Objective-C,
+Swift, AVFoundation, VideoToolbox, or vendor types must remain behind the adapter.
+
+Android and iOS may use different engines while presenting the same core
+capabilities and lifecycle.
+
+## Execution and safe-finalisation flow
+
+1. **Validate plan**
+   - Re-run export compatibility validation.
+   - Reject `OverwriteOriginal = true`.
+   - Reject a proposed output name equal to the source name.
+2. **Queue**
+   - Create an immutable job in `Queued`.
+3. **Prepare**
+   - Confirm input access is still valid.
+   - Reserve a `TemporaryOutput` in app-controlled temporary storage.
+   - Open the source and temporary-output streams.
+4. **Process**
+   - Transition to `Processing`.
+   - Invoke the approved platform adapter.
+   - Normalize progress to `0..1`; never infer completion from process exit alone.
+5. **Cancel or fail**
+   - Signal the native engine and await termination.
+   - Close streams and discard temporary output.
+   - Transition exactly once to Cancelled or Failed.
+6. **Validate output**
+   - Confirm the temporary output exists, is non-empty, and matches the planned
+     media/container expectations.
+   - Optionally re-read metadata before finalisation.
+7. **Atomically finalise**
+   - Call `FinalizeAtomicallyAsync` with the original approved plan.
+   - Re-check destination collision/non-overwrite rules.
+   - Publish via a platform-safe atomic move/commit where supported.
+   - Never expose a partial final file.
+8. **Complete**
+   - Transition to Completed only after finalisation succeeds.
+   - Report 100% and return the final neutral `MediaAsset`.
+
+## Temporary output rules
+
+- Temporary identifiers are opaque core values, not paths.
+- Platform storage chooses private, scoped locations.
+- Temporary names cannot be treated as final user-visible destinations.
+- Startup recovery must remove abandoned temporary outputs after a defined age.
+- Cancellation, failure, validation rejection, and finalisation exceptions must
+  attempt cleanup.
+- Cleanup failures are logged without changing a successful finalisation into a
+  source overwrite or destructive retry.
+
+## Progress and cancellation rules
+
+- Queued and Preparing may report 0%.
+- Processing reports a monotonic normalized fraction between 0 and 1.
+- Native callbacks must be throttled before reaching the UI.
+- Cancellation is cooperative at the core boundary and must map to the native
+  engine's stop mechanism.
+- Completion is a lifecycle result, not merely a progress value.
+- No cancellation path may delete or modify the source.
+
+## Adapter acceptance tests required before Sprint 6
+
+- state-transition and terminal-state tests;
+- cancellation during preparation and processing;
+- corrupt/inaccessible input handling;
+- temporary-output cleanup after failure and process termination;
+- destination collision and source-name collision rejection;
+- atomic-finalisation interruption tests;
+- progress monotonicity and callback throttling;
+- codec/container matrix tests per OS version and device architecture;
+- reproducible native build and binary provenance verification.

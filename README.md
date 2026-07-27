@@ -45,6 +45,22 @@ the proposed format, quality, aspect ratio, settings, and a sanitized output nam
 Every output name includes a preset suffix and every plan explicitly prevents
 overwriting the source. Sprint 4 performs no conversion and writes no files.
 
+## Local Transcoding Architecture
+
+Sprint 5 defines a neutral conversion lifecycle from Queued through Preparing and
+Processing to Completed, Failed, or Cancelled. A planning-only in-memory queue can
+display validated export plans, but it cannot execute them.
+
+`ITranscoder` is the future mobile-engine boundary. `IOutputStorage` separates
+temporary output from safe atomic finalisation and requires the approved,
+non-overwriting `ExportPlan`. No engine implementation or output writer exists.
+
+The native-engine approval gate and compliance requirements are documented in
+[`docs/TRANSCODING_ENGINE_DECISION.md`](docs/TRANSCODING_ENGINE_DECISION.md).
+The Android/iOS adapter and finalisation flow are documented in
+[`docs/MOBILE_MEDIA_ENGINE_ARCHITECTURE.md`](docs/MOBILE_MEDIA_ENGINE_ARCHITECTURE.md).
+No legal approval is claimed.
+
 ## Build Android
 
 ```powershell

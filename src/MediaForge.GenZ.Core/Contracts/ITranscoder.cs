@@ -4,10 +4,10 @@ namespace MediaForge.GenZ.Core.Contracts;
 
 public interface ITranscoder
 {
-    Task<ConversionResult> TranscodeAsync(
-        TranscodeRequest request,
+    Task<ConversionExecutionResult> ProcessAsync(
+        ConversionJob job,
         Stream source,
-        Stream destination,
-        IProgress<TranscodeProgress>? progress = null,
+        Stream temporaryOutput,
+        IProgress<ConversionJobProgress>? progress = null,
         CancellationToken cancellationToken = default);
 }

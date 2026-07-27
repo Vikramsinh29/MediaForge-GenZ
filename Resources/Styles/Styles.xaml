@@ -36,6 +36,13 @@
         <Setter Property="StrokeThickness" Value="1" />
         <Setter Property="StrokeShape" Value="RoundRectangle 18" />
     </Style>
+    <Style x:Key="QueueCard" TargetType="Border">
+        <Setter Property="Padding" Value="13" />
+        <Setter Property="BackgroundColor" Value="{StaticResource Canvas}" />
+        <Setter Property="Stroke" Value="{StaticResource Line}" />
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="StrokeShape" Value="RoundRectangle 15" />
+    </Style>
     <Style x:Key="PresetPicker" TargetType="Picker">
         <Setter Property="HeightRequest" Value="52" />
         <Setter Property="BackgroundColor" Value="{StaticResource PrimarySoft}" />

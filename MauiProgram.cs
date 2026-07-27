@@ -25,6 +25,7 @@ public static class MauiProgram
 
         builder.Services.AddSingleton<IMediaImportService, SystemMediaImportService>();
         builder.Services.AddSingleton<IExportPlanner, ExportPlanner>();
+        builder.Services.AddSingleton<IConversionJobQueue, InMemoryConversionJobQueue>();
 #if ANDROID
         builder.Services.AddSingleton<IMetadataReader, AndroidMediaMetadataReader>();
         builder.Services.AddSingleton<IMediaPreviewService, AndroidMediaPreviewService>();

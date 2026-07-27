@@ -4,13 +4,20 @@ namespace MediaForge.GenZ.Core.Contracts;
 
 public interface IOutputStorage
 {
-    Task<Stream> OpenWriteAsync(
-        string suggestedFileName,
-        string? contentType,
+    Task<TemporaryOutput> CreateTemporaryAsync(
+        ConversionJob job,
         CancellationToken cancellationToken = default);
 
-    Task<MediaAsset> CompleteAsync(
-        string suggestedFileName,
-        string? contentType,
+    Task<Stream> OpenTemporaryWriteAsync(
+        TemporaryOutput temporaryOutput,
+        CancellationToken cancellationToken = default);
+
+    Task<MediaAsset> FinalizeAtomicallyAsync(
+        TemporaryOutput temporaryOutput,
+        ExportPlan approvedPlan,
+        CancellationToken cancellationToken = default);
+
+    Task DiscardTemporaryAsync(
+        TemporaryOutput temporaryOutput,
         CancellationToken cancellationToken = default);
 }

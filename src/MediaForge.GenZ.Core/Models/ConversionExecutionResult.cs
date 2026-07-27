@@ -1,6 +1,6 @@
 namespace MediaForge.GenZ.Core.Models;
 
-public sealed record ConversionResult(
+public sealed record ConversionExecutionResult(
+    string JobId,
     bool Success,
-    MediaAsset? Output,
     string? ErrorMessage = null);

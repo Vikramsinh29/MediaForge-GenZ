@@ -266,6 +266,134 @@
                             LineHeight="1.35"
                             Text="{Binding Details.ErrorMessage}"
                             TextColor="{StaticResource InkMuted}" />
+
+                        <Button
+                            Command="{Binding Details.Export.OpenCommand}"
+                            Style="{StaticResource PrimaryButton}"
+                            Text="Plan an export" />
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <ScrollView
+            Grid.Row="1"
+            ZIndex="20"
+            BackgroundColor="{StaticResource Canvas}"
+            IsVisible="{Binding Details.Export.IsVisible}">
+            <VerticalStackLayout Spacing="16">
+                <Grid ColumnDefinitions="*,Auto">
+                    <VerticalStackLayout Spacing="2">
+                        <Label FontAttributes="Bold" FontSize="27" Text="Plan your export" TextColor="{StaticResource Ink}" />
+                        <Label FontSize="12" Text="Choose a creator preset · review only" TextColor="{StaticResource InkMuted}" />
+                    </VerticalStackLayout>
+                    <Button
+                        Grid.Column="1"
+                        Command="{Binding Details.Export.CloseCommand}"
+                        Style="{StaticResource TextButton}"
+                        Text="Back" />
+                </Grid>
+
+                <Border Style="{StaticResource DetailsCard}">
+                    <VerticalStackLayout Spacing="18">
+                        <VerticalStackLayout Spacing="7">
+                            <Label FontAttributes="Bold" FontSize="13" Text="EXPORT PRESET" TextColor="{StaticResource Ink}" />
+                            <Picker
+                                ItemDisplayBinding="{Binding Name}"
+                                ItemsSource="{Binding Details.Export.CompatiblePresets}"
+                                SelectedItem="{Binding Details.Export.SelectedPreset}"
+                                Style="{StaticResource PresetPicker}"
+                                Title="Choose a preset" />
+                            <Label
+                                FontSize="13"
+                                LineHeight="1.35"
+                                Text="{Binding Details.Export.PresetDescription}"
+                                TextColor="{StaticResource InkMuted}" />
+                        </VerticalStackLayout>
+
+                        <Border
+                            Padding="15"
+                            BackgroundColor="{StaticResource MintSoft}"
+                            StrokeThickness="0"
+                            StrokeShape="RoundRectangle 16">
+                            <VerticalStackLayout Spacing="5">
+                                <Label FontAttributes="Bold" FontSize="12" Text="SAFE OUTPUT NAME" TextColor="{StaticResource MintDark}" />
+                                <Label
+                                    FontAttributes="Bold"
+                                    FontSize="15"
+                                    LineBreakMode="MiddleTruncation"
+                                    MaxLines="1"
+                                    Text="{Binding Details.Export.OutputFileName}"
+                                    TextColor="{StaticResource Ink}" />
+                                <Label
+                                    FontSize="11"
+                                    Text="A new file is proposed. The original is never overwritten."
+                                    TextColor="{StaticResource MintDark}" />
+                            </VerticalStackLayout>
+                        </Border>
+
+                        <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="10" RowSpacing="10">
+                            <Border Style="{StaticResource MetadataCell}">
+                                <VerticalStackLayout Spacing="3">
+                                    <Label FontSize="11" Text="FORMAT" TextColor="{StaticResource InkMuted}" />
+                                    <Label FontAttributes="Bold" Text="{Binding Details.Export.OutputFormat}" TextColor="{StaticResource Ink}" />
+                                </VerticalStackLayout>
+                            </Border>
+                            <Border Grid.Column="1" Style="{StaticResource MetadataCell}">
+                                <VerticalStackLayout Spacing="3">
+                                    <Label FontSize="11" Text="QUALITY" TextColor="{StaticResource InkMuted}" />
+                                    <Label
+                                        FontAttributes="Bold"
+                                        LineBreakMode="TailTruncation"
+                                        MaxLines="1"
+                                        Text="{Binding Details.Export.Quality}"
+                                        TextColor="{StaticResource Ink}" />
+                                </VerticalStackLayout>
+                            </Border>
+                            <Border Grid.Row="1" Style="{StaticResource MetadataCell}">
+                                <VerticalStackLayout Spacing="3">
+                                    <Label FontSize="11" Text="ASPECT RATIO" TextColor="{StaticResource InkMuted}" />
+                                    <Label FontAttributes="Bold" Text="{Binding Details.Export.AspectRatio}" TextColor="{StaticResource Ink}" />
+                                </VerticalStackLayout>
+                            </Border>
+                            <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource MetadataCell}">
+                                <VerticalStackLayout Spacing="3">
+                                    <Label FontSize="11" Text="KEY SETTINGS" TextColor="{StaticResource InkMuted}" />
+                                    <Label
+                                        FontAttributes="Bold"
+                                        FontSize="12"
+                                        LineBreakMode="TailTruncation"
+                                        MaxLines="2"
+                                        Text="{Binding Details.Export.SettingsSummary}"
+                                        TextColor="{StaticResource Ink}" />
+                                </VerticalStackLayout>
+                            </Border>
+                        </Grid>
+
+                        <Border
+                            Padding="14"
+                            BackgroundColor="{StaticResource PrimarySoft}"
+                            StrokeThickness="0"
+                            StrokeShape="RoundRectangle 15">
+                            <VerticalStackLayout Spacing="4">
+                                <Label FontAttributes="Bold" Text="Plan ready for a future sprint" TextColor="{StaticResource Primary}" />
+                                <Label
+                                    FontSize="12"
+                                    LineHeight="1.35"
+                                    Text="{Binding Details.Export.ValidationMessage}"
+                                    TextColor="{StaticResource InkMuted}" />
+                            </VerticalStackLayout>
+                        </Border>
+
+                        <Button
+                            IsEnabled="False"
+                            Style="{StaticResource PrimaryButton}"
+                            Text="Conversion coming soon" />
+                        <Label
+                            HorizontalTextAlignment="Center"
+                            FontSize="11"
+                            Text="No file will be created in this sprint."
+                            TextColor="{StaticResource InkMuted}" />
                     </VerticalStackLayout>
                 </Border>
             </VerticalStackLayout>

@@ -34,6 +34,17 @@ the source file.
 No full media playback, thumbnail extraction pipeline, transcoding, FFmpeg,
 network service, cloud feature, or AI feature is included.
 
+## Creator Export Planning
+
+The platform-neutral core provides creator presets for Instagram Reels, YouTube
+Shorts, TikTok, WhatsApp sharing, audio extraction, image compression, and custom
+exports. Only presets compatible with the selected media type are shown.
+
+The planner validates compatibility and produces a review-only plan containing
+the proposed format, quality, aspect ratio, settings, and a sanitized output name.
+Every output name includes a preset suffix and every plan explicitly prevents
+overwriting the source. Sprint 4 performs no conversion and writes no files.
+
 ## Build Android
 
 ```powershell

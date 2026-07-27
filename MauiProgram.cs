@@ -1,4 +1,5 @@
 using MediaForge.GenZ.Core.Contracts;
+using MediaForge.GenZ.Core.Services;
 using MediaForge.Universal.Services;
 using MediaForge.Universal.ViewModels;
 using MediaForge.Universal.Views;
@@ -23,6 +24,7 @@ public static class MauiProgram
             });
 
         builder.Services.AddSingleton<IMediaImportService, SystemMediaImportService>();
+        builder.Services.AddSingleton<IExportPlanner, ExportPlanner>();
 #if ANDROID
         builder.Services.AddSingleton<IMetadataReader, AndroidMediaMetadataReader>();
         builder.Services.AddSingleton<IMediaPreviewService, AndroidMediaPreviewService>();
@@ -33,6 +35,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<IMediaPreviewService>(
             services => services.GetRequiredService<FallbackMediaInspector>());
 #endif
+        builder.Services.AddSingleton<ExportPlanningViewModel>();
         builder.Services.AddSingleton<MediaDetailsViewModel>();
         builder.Services.AddSingleton<HomeViewModel>();
         builder.Services.AddSingleton<HomePage>();

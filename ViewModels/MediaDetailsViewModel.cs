@@ -30,15 +30,19 @@ public sealed class MediaDetailsViewModel : BaseViewModel
     public MediaDetailsViewModel(
         IMediaImportService mediaImportService,
         IMetadataReader metadataReader,
-        IMediaPreviewService previewService)
+        IMediaPreviewService previewService,
+        ExportPlanningViewModel export)
     {
         _mediaImportService = mediaImportService;
         _metadataReader = metadataReader;
         _previewService = previewService;
+        Export = export;
         CloseCommand = new Command(Close);
     }
 
     public Command CloseCommand { get; }
+
+    public ExportPlanningViewModel Export { get; }
 
     public bool IsVisible
     {
@@ -144,6 +148,7 @@ public sealed class MediaDetailsViewModel : BaseViewModel
         var cancellationToken = _loadCancellation.Token;
 
         Reset(item);
+        Export.Prepare(item.Asset);
         IsVisible = true;
         IsLoading = true;
 
@@ -200,6 +205,7 @@ public sealed class MediaDetailsViewModel : BaseViewModel
     public void Close()
     {
         _loadCancellation?.Cancel();
+        Export.Close();
         IsVisible = false;
         IsLoading = false;
         PreviewImage = null;

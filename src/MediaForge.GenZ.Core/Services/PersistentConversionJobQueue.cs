@@ -118,6 +118,19 @@ public sealed class PersistentConversionJobQueue(
         try
         {
             EnsureInitialized();
+            var existing = GetSnapshot().FirstOrDefault(
+                job =>
+                    job.State == ConversionJobState.Queued &&
+                    job.Plan.Source.Id == plan.Source.Id &&
+                    string.Equals(
+                        job.Plan.ProposedOutputFileName,
+                        plan.ProposedOutputFileName,
+                        StringComparison.OrdinalIgnoreCase));
+            if (existing is not null)
+            {
+                return existing;
+            }
+
             var now = DateTimeOffset.UtcNow;
             var sourceState = await sourceValidator.GetStateAsync(plan.Source, cancellationToken);
             var job = new ConversionJob(

@@ -40,6 +40,9 @@ public sealed class HomeViewModel : BaseViewModel
             async () => await ImportMediaAsync(),
             () => !IsBusy);
         ClearSelectedCommand = new Command(ClearSelected, () => HasSelection && !IsBusy);
+        ConvertSelectedCommand = new Command(
+            async () => await OpenSelectedExportAsync(),
+            () => HasSelection && !IsBusy);
         ClearAllCommand = new Command(ClearAll, () => HasMedia && !IsBusy);
     }
 
@@ -50,6 +53,7 @@ public sealed class HomeViewModel : BaseViewModel
     public Command ImportMediaCommand { get; }
 
     public Command ClearSelectedCommand { get; }
+    public Command ConvertSelectedCommand { get; }
 
     public Command ClearAllCommand { get; }
 
@@ -130,19 +134,20 @@ public sealed class HomeViewModel : BaseViewModel
             {
                 if (_knownAssetIds.Add(asset.Id))
                 {
-                    MediaItems.Add(
-                        new MediaLibraryItemViewModel(
-                            asset,
-                            UpdateSelectionState,
-                            OpenDetailsAsync,
-                            OpenExportAsync));
+                    var item = new MediaLibraryItemViewModel(
+                        asset,
+                        UpdateSelectionState,
+                        OpenDetailsAsync,
+                        OpenExportAsync);
+                    MediaItems.Add(item);
+                    item.IsSelected = true;
                     added++;
                 }
             }
 
             StatusMessage = added == 0
                 ? "No new supported media was added."
-                : $"{added} media file{(added == 1 ? string.Empty : "s")} added.";
+                : $"{added} media file{(added == 1 ? string.Empty : "s")} added and selected.";
             IsStatusVisible = true;
             UpdateLibraryState();
         }
@@ -169,6 +174,18 @@ public sealed class HomeViewModel : BaseViewModel
     private async Task OpenExportAsync(MediaLibraryItemViewModel item)
     {
         await Details.LoadAsync(item);
+        var selected = MediaItems.Where(candidate => candidate.IsSelected).Select(candidate => candidate.Asset).ToArray();
+        var sources = item.IsSelected && selected.Length > 1 ? selected : [item.Asset];
+        Details.Export.PrepareBatch(sources, item.Asset.Id);
+        Details.Export.OpenCommand.Execute(null);
+    }
+
+    private async Task OpenSelectedExportAsync()
+    {
+        var selectedItems = MediaItems.Where(item => item.IsSelected).ToArray();
+        if (selectedItems.Length == 0) return;
+        await Details.LoadAsync(selectedItems[0]);
+        Details.Export.PrepareBatch(selectedItems.Select(item => item.Asset).ToArray(), selectedItems[0].Asset.Id);
         Details.Export.OpenCommand.Execute(null);
     }
 
@@ -216,6 +233,7 @@ public sealed class HomeViewModel : BaseViewModel
     {
         ImportMediaCommand.ChangeCanExecute();
         ClearSelectedCommand.ChangeCanExecute();
+        ConvertSelectedCommand.ChangeCanExecute();
         ClearAllCommand.ChangeCanExecute();
     }
 

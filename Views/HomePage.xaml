@@ -91,7 +91,7 @@
                 </VerticalStackLayout>
                 <Button Grid.Column="1" Command="{Binding ClearAllCommand}" Style="{StaticResource TextButton}" Text="Clear all" />
             </Grid>
-            <Grid Grid.Row="1" ColumnDefinitions="*,Auto">
+            <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
                 <Label
                     VerticalOptions="Center"
                     FontSize="12"
@@ -99,6 +99,12 @@
                     TextColor="{StaticResource InkMuted}" />
                 <Button
                     Grid.Column="1"
+                    Command="{Binding ConvertSelectedCommand}"
+                    IsVisible="{Binding HasSelection}"
+                    Style="{StaticResource TextButton}"
+                    Text="Convert selected" />
+                <Button
+                    Grid.Column="2"
                     Command="{Binding ClearSelectedCommand}"
                     IsVisible="{Binding HasSelection}"
                     Style="{StaticResource TextButton}"
@@ -314,6 +320,20 @@
                         <VerticalStackLayout
                             IsVisible="{Binding Details.Export.IsPlanEditorVisible}"
                             Spacing="7">
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                                <Button Command="{Binding Details.Export.PreviousSourceCommand}" Style="{StaticResource TextButton}" Text="Previous" />
+                                <VerticalStackLayout Grid.Column="1" Spacing="1">
+                                    <Label HorizontalTextAlignment="Center" FontAttributes="Bold" Text="{Binding Details.Export.CurrentSourceName}" TextColor="{StaticResource Ink}" />
+                                    <Label HorizontalTextAlignment="Center" FontSize="11" Text="{Binding Details.Export.SourcePositionLabel}" TextColor="{StaticResource InkMuted}" />
+                                    <Label
+                                        IsVisible="{Binding Details.Export.HasMultipleSources}"
+                                        HorizontalTextAlignment="Center"
+                                        FontSize="10"
+                                        Text="{Binding Details.Export.DraftProgressLabel}"
+                                        TextColor="{StaticResource Primary}" />
+                                </VerticalStackLayout>
+                                <Button Grid.Column="2" Command="{Binding Details.Export.NextSourceCommand}" Style="{StaticResource TextButton}" Text="Next" />
+                            </Grid>
                             <Label FontAttributes="Bold" FontSize="13" Text="EXPORT PRESET" TextColor="{StaticResource Ink}" />
                             <Picker
                                 ItemDisplayBinding="{Binding Name}"
@@ -326,6 +346,49 @@
                                 LineHeight="1.35"
                                 Text="{Binding Details.Export.PresetDescription}"
                                 TextColor="{StaticResource InkMuted}" />
+                            <Label FontAttributes="Bold" FontSize="12" Text="OUTPUT FORMAT" TextColor="{StaticResource Ink}" />
+                            <Picker
+                                ItemDisplayBinding="{Binding Label}"
+                                ItemsSource="{Binding Details.Export.OutputFormats}"
+                                SelectedItem="{Binding Details.Export.SelectedOutputFormat}"
+                                Style="{StaticResource PresetPicker}" />
+                            <Label FontAttributes="Bold" FontSize="12" Text="QUALITY" TextColor="{StaticResource Ink}" />
+                            <Picker
+                                ItemDisplayBinding="{Binding Label}"
+                                ItemsSource="{Binding Details.Export.QualityOptions}"
+                                SelectedItem="{Binding Details.Export.SelectedQuality}"
+                                Style="{StaticResource PresetPicker}" />
+                            <Label FontAttributes="Bold" FontSize="12" Text="ASPECT RATIO" TextColor="{StaticResource Ink}" />
+                            <Picker
+                                ItemDisplayBinding="{Binding Label}"
+                                ItemsSource="{Binding Details.Export.AspectRatios}"
+                                SelectedItem="{Binding Details.Export.SelectedAspectRatio}"
+                                Style="{StaticResource PresetPicker}" />
+                            <Border
+                                IsVisible="{Binding Details.Export.HasMultipleSources}"
+                                Padding="12"
+                                BackgroundColor="{StaticResource PrimarySoft}"
+                                StrokeThickness="0"
+                                StrokeShape="RoundRectangle 14">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                    <VerticalStackLayout Spacing="2">
+                                        <Label
+                                            FontAttributes="Bold"
+                                            FontSize="12"
+                                            Text="Use these settings for compatible files"
+                                            TextColor="{StaticResource Ink}" />
+                                        <Label
+                                            FontSize="10"
+                                            Text="When on, dropdown changes are copied automatically."
+                                            TextColor="{StaticResource InkMuted}" />
+                                    </VerticalStackLayout>
+                                    <Switch
+                                        Grid.Column="1"
+                                        IsToggled="{Binding Details.Export.ApplySettingsToCompatibleFiles}"
+                                        OnColor="{StaticResource Primary}"
+                                        VerticalOptions="Center" />
+                                </Grid>
+                            </Border>
                         </VerticalStackLayout>
 
                         <Border
@@ -421,7 +484,9 @@
                             Text="Queue planning only · no file will be created."
                             TextColor="{StaticResource InkMuted}" />
 
-                        <VerticalStackLayout Spacing="10">
+                        <VerticalStackLayout
+                            IsVisible="{Binding Details.Export.IsQueueSectionVisible}"
+                            Spacing="10">
                             <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
                                 <VerticalStackLayout Spacing="1">
                                     <Label FontAttributes="Bold" FontSize="17" Text="Export queue" TextColor="{StaticResource Ink}" />
@@ -443,6 +508,29 @@
                                     Style="{StaticResource TextButton}"
                                     Text="Clear all" />
                             </Grid>
+
+                            <Border
+                                IsVisible="{Binding Details.Export.HasQueuedJobs}"
+                                Padding="12"
+                                BackgroundColor="{StaticResource MintSoft}"
+                                StrokeThickness="0"
+                                StrokeShape="RoundRectangle 14">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                    <VerticalStackLayout Spacing="2">
+                                        <Label FontAttributes="Bold" FontSize="12" Text="Plans are ready" TextColor="{StaticResource Ink}" />
+                                        <Label
+                                            FontSize="10"
+                                            LineHeight="1.25"
+                                            Text="{Binding Details.Export.ProcessingGuidance}"
+                                            TextColor="{StaticResource InkMuted}" />
+                                    </VerticalStackLayout>
+                                    <Button
+                                        Grid.Column="1"
+                                        Command="{Binding Details.Export.CloseCommand}"
+                                        Style="{StaticResource TextButton}"
+                                        Text="Back to library" />
+                                </Grid>
+                            </Border>
 
                             <Border
                                 IsVisible="{Binding Details.Export.IsQueueEmpty}"
@@ -470,8 +558,8 @@
                                 Spacing="8">
                                 <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="viewModels:QueuedExportViewModel">
-                                        <Border Style="{StaticResource QueueCard}">
-                                            <VerticalStackLayout Spacing="8">
+                                        <Border Padding="12" Style="{StaticResource QueueCard}">
+                                            <VerticalStackLayout Spacing="5">
                                                 <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="9">
                                                     <Border
                                                         Padding="8,4"
@@ -497,6 +585,15 @@
                                                             MaxLines="1"
                                                             Text="{Binding SourceFileName}"
                                                             TextColor="{StaticResource InkMuted}" />
+                                                        <Label
+                                                            FontAttributes="Bold"
+                                                            FontSize="12"
+                                                            Text="{Binding ConversionRouteLabel}"
+                                                            TextColor="{StaticResource Primary}" />
+                                                        <Label
+                                                            FontSize="10"
+                                                            Text="{Binding SettingsLabel}"
+                                                            TextColor="{StaticResource InkMuted}" />
                                                     </VerticalStackLayout>
                                                     <Label
                                                         Grid.Column="2"
@@ -507,8 +604,13 @@
                                                         TextColor="{StaticResource Primary}" />
                                                 </Grid>
                                                 <Label
+                                                    IsVisible="{Binding HasSourceIssue}"
                                                     FontSize="11"
                                                     Text="{Binding StatusMessage}"
+                                                    TextColor="{StaticResource InkMuted}" />
+                                                <Label
+                                                    FontSize="10"
+                                                    Text="{Binding CompatibilityLabel}"
                                                     TextColor="{StaticResource InkMuted}" />
                                                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                                                     <ProgressBar
@@ -529,11 +631,14 @@
                                                             TextColor="{StaticResource Primary}" />
                                                     </Border>
                                                 </Grid>
-                                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                                                <Grid
+                                                    IsVisible="{Binding ShowRunAction}"
+                                                    ColumnDefinitions="*,Auto"
+                                                    ColumnSpacing="6">
                                                     <Button
                                                         Command="{Binding RunCommand}"
                                                         Style="{StaticResource PrimaryButton}"
-                                                        Text="Run WAV → M4A POC" />
+                                                        Text="Convert WAV → M4A" />
                                                     <Button
                                                         Grid.Column="1"
                                                         Command="{Binding CancelCommand}"

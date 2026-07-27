@@ -68,6 +68,19 @@ public sealed class QueuedExportViewModel : BaseViewModel
 
     public string PresetName => Job.Plan.Preset.Name;
 
+    public string ConversionRouteLabel =>
+        $"{FormatSource(Job.Plan.Source.DisplayName)} → {FormatOutput(Job.Plan.OutputFormat)}";
+
+    public string SettingsLabel =>
+        $"{FormatQuality(Job.Plan.Quality)} · {FormatAspectRatio(Job.Plan.AspectRatio)}";
+
+    public string CompatibilityLabel =>
+        CanRun
+            ? "Development WAV → M4A conversion is available."
+            : $"Plan compatible with {FormatMediaType(Job.Plan.Source)} media · conversion is not available yet.";
+
+    public bool ShowRunAction => CanRun;
+
     public string StatusMessage =>
         string.IsNullOrWhiteSpace(RuntimeMessage)
             ? Job.StatusMessage ?? "Plan saved locally."
@@ -214,4 +227,48 @@ public sealed class QueuedExportViewModel : BaseViewModel
         RunCommand.ChangeCanExecute();
         CancelCommand.ChangeCanExecute();
     }
+
+    private static string FormatOutput(OutputFormat format) => format switch
+    {
+        OutputFormat.Mp4 => "MP4",
+        OutputFormat.WebM => "WebM",
+        OutputFormat.Mp3 => "MP3",
+        OutputFormat.M4A => "M4A",
+        OutputFormat.Jpeg => "JPEG",
+        OutputFormat.Png => "PNG",
+        OutputFormat.WebP => "WebP",
+        _ => format.ToString()
+    };
+
+    private static string FormatSource(string fileName)
+    {
+        var extension = Path.GetExtension(fileName).TrimStart('.');
+        return string.IsNullOrWhiteSpace(extension)
+            ? "MEDIA"
+            : extension.ToUpperInvariant();
+    }
+
+    private static string FormatMediaType(MediaAsset source)
+    {
+        if (source.ContentType?.StartsWith("audio/", StringComparison.OrdinalIgnoreCase) is true) return "audio";
+        if (source.ContentType?.StartsWith("image/", StringComparison.OrdinalIgnoreCase) is true) return "image";
+        if (source.ContentType?.StartsWith("video/", StringComparison.OrdinalIgnoreCase) is true) return "video";
+        return "selected";
+    }
+
+    private static string FormatQuality(ExportQuality quality) => quality switch
+    {
+        ExportQuality.Compact => "Compact",
+        ExportQuality.Balanced => "Balanced",
+        ExportQuality.High => "High",
+        _ => quality.ToString()
+    };
+
+    private static string FormatAspectRatio(AspectRatioTarget aspectRatio) => aspectRatio switch
+    {
+        AspectRatioTarget.Portrait9By16 => "9:16",
+        AspectRatioTarget.Square1By1 => "1:1",
+        AspectRatioTarget.Landscape16By9 => "16:9",
+        _ => "Original"
+    };
 }

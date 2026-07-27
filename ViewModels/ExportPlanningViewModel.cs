@@ -10,6 +10,10 @@ public sealed class ExportPlanningViewModel : BaseViewModel
     private readonly IConversionJobQueue _conversionJobQueue;
     private readonly IConversionJobRunner _conversionJobRunner;
     private readonly Dictionary<string, CancellationTokenSource> _runningJobs = new();
+    private readonly Dictionary<string, ExportDraft> _drafts = new(StringComparer.Ordinal);
+    private readonly List<MediaAsset> _batchSources = [];
+    private int _batchIndex;
+    private bool _loadingDraft;
     private ExportPlan? _currentPlan;
     private MediaAsset? _source;
     private string? _editingJobId;
@@ -19,6 +23,7 @@ public sealed class ExportPlanningViewModel : BaseViewModel
     private bool _isPlanEditorVisible;
     private bool _isPlanValid;
     private bool _isQueueEmpty = true;
+    private bool _applySettingsToCompatibleFiles;
     private bool _isVisible;
     private string _aspectRatio = string.Empty;
     private string _outputFileName = string.Empty;
@@ -31,6 +36,9 @@ public sealed class ExportPlanningViewModel : BaseViewModel
     private string _settingsSummary = string.Empty;
     private string _validationMessage = string.Empty;
     private ExportPreset? _selectedPreset;
+    private OutputFormatOption? _selectedOutputFormat;
+    private ExportQualityOption? _selectedQuality;
+    private AspectRatioOption? _selectedAspectRatio;
 
     public ExportPlanningViewModel(
         IExportPlanner exportPlanner,
@@ -50,11 +58,21 @@ public sealed class ExportPlanningViewModel : BaseViewModel
         ClearQueueCommand = new Command(
             async () => await ClearQueueAsync(),
             () => HasQueuedJobs && !IsBusy);
+        PreviousSourceCommand = new Command(PreviousSource, () => _batchIndex > 0 && !IsBusy);
+        NextSourceCommand = new Command(NextSource, () => _batchIndex < _batchSources.Count - 1 && !IsBusy);
     }
 
     public ObservableCollection<ExportPreset> CompatiblePresets { get; } = [];
 
     public ObservableCollection<QueuedExportViewModel> QueuedJobs { get; } = [];
+    public ObservableCollection<OutputFormatOption> OutputFormats { get; } = [];
+    public ObservableCollection<ExportQualityOption> QualityOptions { get; } =
+    [
+        new(ExportQuality.Compact, "Compact · smaller file"),
+        new(ExportQuality.Balanced, "Balanced"),
+        new(ExportQuality.High, "High quality")
+    ];
+    public ObservableCollection<AspectRatioOption> AspectRatios { get; } = [];
 
     public Command OpenCommand { get; }
 
@@ -67,6 +85,32 @@ public sealed class ExportPlanningViewModel : BaseViewModel
     public Command QueuePlanCommand { get; }
 
     public Command ClearQueueCommand { get; }
+    public Command PreviousSourceCommand { get; }
+    public Command NextSourceCommand { get; }
+    public bool HasMultipleSources => _batchSources.Count > 1;
+    public bool IsQueueSectionVisible => !IsPlanEditorVisible;
+    public bool HasRunnableJobs => QueuedJobs.Any(job => job.CanRun);
+    public string ProcessingGuidance => HasRunnableJobs
+        ? "WAV → M4A test jobs can be converted individually. Other plans remain review-only."
+        : "Nothing here can run yet. For the current proof of concept, edit a WAV plan and choose M4A.";
+    public string SourcePositionLabel => _batchSources.Count == 0 ? string.Empty : $"File {_batchIndex + 1} of {_batchSources.Count}";
+    public string CurrentSourceName => _source?.DisplayName ?? string.Empty;
+    public string DraftProgressLabel =>
+        _batchSources.Count <= 1
+            ? string.Empty
+            : $"{_drafts.Values.Count(draft => draft.IsConfigured)} of {_batchSources.Count} files configured";
+
+    public bool ApplySettingsToCompatibleFiles
+    {
+        get => _applySettingsToCompatibleFiles;
+        set
+        {
+            if (SetProperty(ref _applySettingsToCompatibleFiles, value) && value)
+            {
+                ApplyCurrentSettingsToCompatible();
+            }
+        }
+    }
 
     public bool IsVisible
     {
@@ -77,7 +121,13 @@ public sealed class ExportPlanningViewModel : BaseViewModel
     public bool IsPlanEditorVisible
     {
         get => _isPlanEditorVisible;
-        private set => SetProperty(ref _isPlanEditorVisible, value);
+        private set
+        {
+            if (SetProperty(ref _isPlanEditorVisible, value))
+            {
+                SetProperty(ref _queueSectionVersion, _queueSectionVersion + 1, nameof(IsQueueSectionVisible));
+            }
+        }
     }
 
     public bool IsBusy
@@ -130,9 +180,31 @@ public sealed class ExportPlanningViewModel : BaseViewModel
         {
             if (SetProperty(ref _selectedPreset, value))
             {
-                BuildPlan();
+                if (!_loadingDraft)
+                {
+                    LoadSettingOptions(value);
+                    BuildPlan();
+                }
             }
         }
+    }
+
+    public OutputFormatOption? SelectedOutputFormat
+    {
+        get => _selectedOutputFormat;
+        set { if (SetProperty(ref _selectedOutputFormat, value) && !_loadingDraft) BuildPlan(); }
+    }
+
+    public ExportQualityOption? SelectedQuality
+    {
+        get => _selectedQuality;
+        set { if (SetProperty(ref _selectedQuality, value) && !_loadingDraft) BuildPlan(); }
+    }
+
+    public AspectRatioOption? SelectedAspectRatio
+    {
+        get => _selectedAspectRatio;
+        set { if (SetProperty(ref _selectedAspectRatio, value) && !_loadingDraft) BuildPlan(); }
     }
 
     public string PresetDescription
@@ -221,13 +293,20 @@ public sealed class ExportPlanningViewModel : BaseViewModel
     }
 
     public void Prepare(MediaAsset source)
+        => PrepareBatch([source], source.Id);
+
+    public void PrepareBatch(IReadOnlyList<MediaAsset> sources, string initialSourceId)
     {
-        _source = source;
+        _batchSources.Clear();
+        _batchSources.AddRange(sources.DistinctBy(asset => asset.Id));
+        _batchIndex = Math.Max(0, _batchSources.FindIndex(asset => asset.Id == initialSourceId));
+        _drafts.Clear();
+        ApplySettingsToCompatibleFiles = false;
         _editingJobId = null;
         IsVisible = false;
         IsPlanEditorVisible = true;
-        QueueActionLabel = "Add plan to queue";
-        LoadPresets(source, null);
+        QueueActionLabel = _batchSources.Count > 1 ? "Save settings & next" : "Add plan to queue";
+        LoadCurrentSource();
     }
 
     public void Close()
@@ -280,21 +359,36 @@ public sealed class ExportPlanningViewModel : BaseViewModel
 
     private void BuildPlan()
     {
-        if (_source is null || SelectedPreset is null)
+        if (_source is null || SelectedPreset is null ||
+            SelectedOutputFormat is null || SelectedQuality is null || SelectedAspectRatio is null)
         {
             ClearPlan("Choose a preset to preview an export plan.");
             return;
         }
 
-        var validation = _exportPlanner.Validate(_source, SelectedPreset);
+        var settings = new ExportSettings(
+            SelectedOutputFormat.Value,
+            SelectedQuality.Value,
+            SelectedAspectRatio.Value);
+        var validation = _exportPlanner.Validate(_source, SelectedPreset, settings);
         if (!validation.IsValid)
         {
             ClearPlan(string.Join(" ", validation.Errors));
             return;
         }
 
-        var plan = _exportPlanner.CreatePlan(_source, SelectedPreset);
+        var plan = _exportPlanner.CreatePlan(_source, SelectedPreset, settings);
         _currentPlan = plan;
+        _drafts[_source.Id] = new ExportDraft(
+            SelectedPreset.Id,
+            settings.OutputFormat,
+            settings.Quality,
+            settings.AspectRatio,
+            _drafts.GetValueOrDefault(_source.Id)?.IsConfigured ?? false);
+        if (ApplySettingsToCompatibleFiles && !_loadingDraft)
+        {
+            ApplyCurrentSettingsToCompatible();
+        }
         PresetDescription = plan.Preset.Description;
         OutputFormat = FormatOutputFormat(plan.OutputFormat);
         Quality = FormatQuality(plan.Quality);
@@ -325,13 +419,58 @@ public sealed class ExportPlanningViewModel : BaseViewModel
             return;
         }
 
+        var wasEditing = _editingJobId is not null;
+        if (!wasEditing && _batchSources.Count > 1)
+        {
+            _drafts[_source!.Id] = _drafts[_source.Id] with { IsConfigured = true };
+            SetProperty(ref _draftProgressVersion, _draftProgressVersion + 1, nameof(DraftProgressLabel));
+            if (_batchIndex < _batchSources.Count - 1)
+            {
+                _batchIndex++;
+                LoadCurrentSource();
+                return;
+            }
+
+            if (_drafts.Values.Count(draft => draft.IsConfigured) < _batchSources.Count)
+            {
+                QueueMessage = "Please review each file before adding the batch.";
+                var firstPending = _batchSources.FindIndex(source =>
+                    !_drafts.GetValueOrDefault(source.Id)?.IsConfigured ?? true);
+                _batchIndex = Math.Max(0, firstPending);
+                LoadCurrentSource();
+                return;
+            }
+        }
+
         IsBusy = true;
         try
         {
             if (_editingJobId is null)
             {
-                await _conversionJobQueue.EnqueueAsync(_currentPlan);
-                QueueMessage = "Plan saved locally. No media or output file was copied.";
+                var previousCount = _conversionJobQueue.GetSnapshot().Count;
+                if (_batchSources.Count > 1)
+                {
+                    foreach (var source in _batchSources)
+                    {
+                        var draft = _drafts[source.Id];
+                        var preset = _exportPlanner.GetCompatiblePresets(source)
+                            .First(item => item.Id == draft.PresetId);
+                        var plan = _exportPlanner.CreatePlan(
+                            source,
+                            preset,
+                            new ExportSettings(draft.Format, draft.Quality, draft.AspectRatio));
+                        await _conversionJobQueue.EnqueueAsync(plan);
+                    }
+                }
+                else
+                {
+                    await _conversionJobQueue.EnqueueAsync(_currentPlan);
+                }
+
+                var added = _conversionJobQueue.GetSnapshot().Count - previousCount;
+                QueueMessage = added == 0
+                    ? "Those files already have identical queued plans."
+                    : $"{added} export plan{(added == 1 ? string.Empty : "s")} added. No media was copied.";
             }
             else
             {
@@ -513,13 +652,91 @@ public sealed class ExportPlanningViewModel : BaseViewModel
 
         HasQueuedJobs = QueuedJobs.Count > 0;
         QueueCountLabel = $"{QueuedJobs.Count} export job{(QueuedJobs.Count == 1 ? string.Empty : "s")}";
+        SetProperty(ref _processingGuidanceVersion, _processingGuidanceVersion + 1, nameof(HasRunnableJobs));
+        SetProperty(ref _processingGuidanceVersion, _processingGuidanceVersion + 1, nameof(ProcessingGuidance));
     }
 
     private void RefreshCommands()
     {
         QueuePlanCommand.ChangeCanExecute();
         ClearQueueCommand.ChangeCanExecute();
+        PreviousSourceCommand.ChangeCanExecute();
+        NextSourceCommand.ChangeCanExecute();
     }
+
+    private void LoadCurrentSource()
+    {
+        if (_batchSources.Count == 0) return;
+        _source = _batchSources[_batchIndex];
+        _loadingDraft = true;
+        LoadPresets(_source, _drafts.GetValueOrDefault(_source.Id)?.PresetId);
+        var draft = _drafts.GetValueOrDefault(_source.Id);
+        LoadSettingOptions(SelectedPreset, draft);
+        _loadingDraft = false;
+        BuildPlan();
+        SetProperty(ref _sourcePositionVersion, _sourcePositionVersion + 1, nameof(SourcePositionLabel));
+        SetProperty(ref _sourceNameVersion, _sourceNameVersion + 1, nameof(CurrentSourceName));
+        SetProperty(ref _multipleSourcesVersion, _multipleSourcesVersion + 1, nameof(HasMultipleSources));
+        QueueActionLabel = _batchIndex < _batchSources.Count - 1
+            ? "Save settings & next"
+            : (_batchSources.Count > 1 ? "Add all plans to queue" : "Add plan to queue");
+        SetProperty(ref _draftProgressVersion, _draftProgressVersion + 1, nameof(DraftProgressLabel));
+        RefreshCommands();
+    }
+
+    private int _sourcePositionVersion;
+    private int _sourceNameVersion;
+    private int _multipleSourcesVersion;
+    private int _queueSectionVersion;
+    private int _draftProgressVersion;
+    private int _processingGuidanceVersion;
+
+    private void LoadSettingOptions(ExportPreset? preset, ExportDraft? draft = null)
+    {
+        if (_source is null || preset is null) return;
+        OutputFormats.Clear();
+        foreach (var value in _exportPlanner.GetCompatibleOutputFormats(_source))
+            OutputFormats.Add(new(value, FormatOutputFormat(value)));
+        AspectRatios.Clear();
+        foreach (var value in _exportPlanner.GetCompatibleAspectRatios(_source))
+            AspectRatios.Add(new(value, FormatAspectRatio(value)));
+        SelectedOutputFormat = OutputFormats.FirstOrDefault(x => x.Value == (draft?.Format ?? preset.OutputFormat));
+        SelectedQuality = QualityOptions.FirstOrDefault(x => x.Value == (draft?.Quality ?? preset.Quality));
+        SelectedAspectRatio = AspectRatios.FirstOrDefault(x => x.Value == (draft?.AspectRatio ?? preset.AspectRatio));
+    }
+
+    private void PreviousSource() { if (_batchIndex > 0) { _batchIndex--; LoadCurrentSource(); } }
+    private void NextSource() { if (_batchIndex < _batchSources.Count - 1) { _batchIndex++; LoadCurrentSource(); } }
+
+    private void ApplyCurrentSettingsToCompatible()
+    {
+        if (_currentPlan is null || SelectedPreset is null) return;
+        var compatible = 0;
+        foreach (var source in _batchSources)
+        {
+            var settings = new ExportSettings(_currentPlan.OutputFormat, _currentPlan.Quality, _currentPlan.AspectRatio);
+            if (_exportPlanner.Validate(source, SelectedPreset, settings).IsValid)
+            {
+                var wasConfigured = _drafts.GetValueOrDefault(source.Id)?.IsConfigured ?? false;
+                _drafts[source.Id] = new(
+                    SelectedPreset.Id,
+                    settings.OutputFormat,
+                    settings.Quality,
+                    settings.AspectRatio,
+                    wasConfigured);
+                compatible++;
+            }
+        }
+        QueueMessage = $"Settings linked to {compatible} compatible file{(compatible == 1 ? string.Empty : "s")}. Changes now apply automatically.";
+        SetProperty(ref _draftProgressVersion, _draftProgressVersion + 1, nameof(DraftProgressLabel));
+    }
+
+    private sealed record ExportDraft(
+        string PresetId,
+        OutputFormat Format,
+        ExportQuality Quality,
+        AspectRatioTarget AspectRatio,
+        bool IsConfigured = false);
 
     private static string FormatOutputFormat(OutputFormat format) =>
         format switch

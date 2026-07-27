@@ -126,7 +126,30 @@ public sealed class ExportPlanner : IExportPlanner
         return Presets.Where(preset => preset.CompatibleMedia == category).ToArray();
     }
 
+    public IReadOnlyList<OutputFormat> GetCompatibleOutputFormats(MediaAsset source) =>
+        Classify(source) switch
+        {
+            MediaCategory.Video => [OutputFormat.Mp4, OutputFormat.WebM, OutputFormat.Mp3, OutputFormat.M4A],
+            MediaCategory.Audio => [OutputFormat.Mp3, OutputFormat.M4A],
+            MediaCategory.Image => [OutputFormat.Jpeg, OutputFormat.Png, OutputFormat.WebP],
+            _ => []
+        };
+
+    public IReadOnlyList<AspectRatioTarget> GetCompatibleAspectRatios(MediaAsset source) =>
+        Classify(source) == MediaCategory.Audio
+            ? [AspectRatioTarget.Original]
+            : Enum.GetValues<AspectRatioTarget>();
+
     public ValidationResult Validate(MediaAsset source, ExportPreset preset)
+        => Validate(
+            source,
+            preset,
+            new ExportSettings(preset.OutputFormat, preset.Quality, preset.AspectRatio));
+
+    public ValidationResult Validate(
+        MediaAsset source,
+        ExportPreset preset,
+        ExportSettings settings)
     {
         var errors = new List<string>();
         var category = Classify(source);
@@ -141,14 +164,19 @@ public sealed class ExportPlanner : IExportPlanner
             errors.Add($"{preset.Name} is not compatible with this {category.ToString().ToLowerInvariant()}.");
         }
 
-        if (!IsFormatCompatible(category, preset.OutputFormat))
+        if (!IsFormatCompatible(category, settings.OutputFormat))
         {
-            errors.Add($"{preset.OutputFormat} is not a supported output for this media type.");
+            errors.Add($"{settings.OutputFormat} is not a supported output for this media type.");
         }
 
         if (preset.ExtractAudioOnly && category != MediaCategory.Video)
         {
             errors.Add("Audio extraction requires a video source.");
+        }
+
+        if (category == MediaCategory.Audio && settings.AspectRatio != AspectRatioTarget.Original)
+        {
+            errors.Add("Audio exports do not use an aspect ratio.");
         }
 
         if (preset.TargetWidth.HasValue != preset.TargetHeight.HasValue ||
@@ -164,8 +192,17 @@ public sealed class ExportPlanner : IExportPlanner
     }
 
     public ExportPlan CreatePlan(MediaAsset source, ExportPreset preset)
+        => CreatePlan(
+            source,
+            preset,
+            new ExportSettings(preset.OutputFormat, preset.Quality, preset.AspectRatio));
+
+    public ExportPlan CreatePlan(
+        MediaAsset source,
+        ExportPreset preset,
+        ExportSettings settings)
     {
-        var validation = Validate(source, preset);
+        var validation = Validate(source, preset, settings);
         if (!validation.IsValid)
         {
             throw new ArgumentException(
@@ -173,18 +210,34 @@ public sealed class ExportPlanner : IExportPlanner
                 nameof(preset));
         }
 
-        var outputFileName = BuildOutputFileName(source.DisplayName, preset);
+        var category = Classify(source);
+        var extractsAudio = category == MediaCategory.Video &&
+            settings.OutputFormat is OutputFormat.Mp3 or OutputFormat.M4A;
+        var keepsPresetDimensions =
+            settings.AspectRatio == preset.AspectRatio &&
+            settings.OutputFormat == preset.OutputFormat &&
+            !extractsAudio;
+        var effectivePreset = preset with
+        {
+            OutputFormat = settings.OutputFormat,
+            Quality = settings.Quality,
+            AspectRatio = extractsAudio ? AspectRatioTarget.Original : settings.AspectRatio,
+            TargetWidth = keepsPresetDimensions ? preset.TargetWidth : null,
+            TargetHeight = keepsPresetDimensions ? preset.TargetHeight : null,
+            ExtractAudioOnly = extractsAudio
+        };
+        var outputFileName = BuildOutputFileName(source.DisplayName, effectivePreset);
         return new ExportPlan(
             source,
-            preset,
-            preset.OutputFormat,
-            preset.Quality,
-            preset.AspectRatio,
-            preset.TargetWidth,
-            preset.TargetHeight,
-            preset.ExtractAudioOnly,
+            effectivePreset,
+            effectivePreset.OutputFormat,
+            effectivePreset.Quality,
+            effectivePreset.AspectRatio,
+            effectivePreset.TargetWidth,
+            effectivePreset.TargetHeight,
+            effectivePreset.ExtractAudioOnly,
             outputFileName,
-            BuildSettingsSummary(preset),
+            BuildSettingsSummary(effectivePreset),
             OverwriteOriginal: false);
     }
 

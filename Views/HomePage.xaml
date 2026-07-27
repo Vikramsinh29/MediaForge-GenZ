@@ -38,11 +38,7 @@
                     BackgroundColor="{StaticResource MintSoft}"
                     StrokeThickness="0"
                     StrokeShape="RoundRectangle 16">
-                    <Label
-                        FontAttributes="Bold"
-                        FontSize="12"
-                        Text="OFFLINE BY DEFAULT"
-                        TextColor="{StaticResource MintDark}" />
+                    <Label FontAttributes="Bold" FontSize="12" Text="OFFLINE BY DEFAULT" TextColor="{StaticResource MintDark}" />
                 </Border>
                 <Label
                     FontAttributes="Bold"
@@ -51,11 +47,7 @@
                     Text="{Binding Headline}"
                     TextColor="{StaticResource Ink}"
                     SemanticProperties.HeadingLevel="Level1" />
-                <Label
-                    FontSize="16"
-                    LineHeight="1.45"
-                    Text="{Binding Description}"
-                    TextColor="{StaticResource InkMuted}" />
+                <Label FontSize="16" LineHeight="1.45" Text="{Binding Description}" TextColor="{StaticResource InkMuted}" />
                 <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
                     <Border Style="{StaticResource FeatureCard}">
                         <VerticalStackLayout Spacing="7">
@@ -88,18 +80,13 @@
                     <Label FontAttributes="Bold" FontSize="28" Text="Media library" TextColor="{StaticResource Ink}" />
                     <Label FontSize="13" Text="{Binding ImportedCountLabel}" TextColor="{StaticResource InkMuted}" />
                 </VerticalStackLayout>
-                <Button
-                    Grid.Column="1"
-                    Command="{Binding ClearAllCommand}"
-                    Style="{StaticResource TextButton}"
-                    Text="Clear all" />
+                <Button Grid.Column="1" Command="{Binding ClearAllCommand}" Style="{StaticResource TextButton}" Text="Clear all" />
             </Grid>
-
             <Grid Grid.Row="1" ColumnDefinitions="*,Auto">
                 <Label
                     VerticalOptions="Center"
                     FontSize="12"
-                    Text="Select cards to manage your list"
+                    Text="Tap a card for details"
                     TextColor="{StaticResource InkMuted}" />
                 <Button
                     Grid.Column="1"
@@ -108,7 +95,6 @@
                     Style="{StaticResource TextButton}"
                     Text="Clear selected" />
             </Grid>
-
             <CollectionView
                 Grid.Row="2"
                 ItemsSource="{Binding MediaItems}"
@@ -117,6 +103,9 @@
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="viewModels:MediaLibraryItemViewModel">
                         <Border Margin="0,0,0,10" Style="{StaticResource MediaCard}">
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding OpenDetailsCommand}" />
+                            </Border.GestureRecognizers>
                             <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
                                 <Border
                                     HeightRequest="42"
@@ -143,7 +132,7 @@
                                         TextColor="{StaticResource Ink}" />
                                     <HorizontalStackLayout Spacing="7">
                                         <Label FontSize="12" Text="{Binding MediaType}" TextColor="{StaticResource InkMuted}" />
-                                        <Label FontSize="12" Text="•" TextColor="{StaticResource InkMuted}" />
+                                        <Label FontSize="12" Text="·" TextColor="{StaticResource InkMuted}" />
                                         <Label FontSize="12" Text="{Binding FileSize}" TextColor="{StaticResource InkMuted}" />
                                     </HorizontalStackLayout>
                                 </VerticalStackLayout>
@@ -159,6 +148,129 @@
             </CollectionView>
         </Grid>
 
+        <ScrollView
+            Grid.Row="1"
+            ZIndex="10"
+            BackgroundColor="{StaticResource Canvas}"
+            IsVisible="{Binding Details.IsVisible}">
+            <VerticalStackLayout Spacing="16">
+                <Grid ColumnDefinitions="*,Auto">
+                    <VerticalStackLayout Spacing="2">
+                        <Label FontAttributes="Bold" FontSize="27" Text="Media details" TextColor="{StaticResource Ink}" />
+                        <Label FontSize="12" Text="Lightweight preview · No playback" TextColor="{StaticResource InkMuted}" />
+                    </VerticalStackLayout>
+                    <Button Grid.Column="1" Command="{Binding Details.CloseCommand}" Style="{StaticResource TextButton}" Text="Close" />
+                </Grid>
+
+                <Border Style="{StaticResource DetailsCard}">
+                    <VerticalStackLayout Spacing="16">
+                        <Grid HeightRequest="210">
+                            <Border
+                                BackgroundColor="{StaticResource Ink}"
+                                StrokeThickness="0"
+                                StrokeShape="RoundRectangle 18">
+                                <Image
+                                    Aspect="AspectFit"
+                                    IsVisible="{Binding Details.HasPreview}"
+                                    Source="{Binding Details.PreviewImage}" />
+                            </Border>
+
+                            <Border
+                                IsVisible="{Binding Details.IsAudio}"
+                                BackgroundColor="{StaticResource PrimarySoft}"
+                                StrokeThickness="0"
+                                StrokeShape="RoundRectangle 18">
+                                <VerticalStackLayout HorizontalOptions="Center" VerticalOptions="Center" Spacing="14">
+                                    <Label
+                                        HorizontalTextAlignment="Center"
+                                        FontAttributes="Bold"
+                                        FontSize="15"
+                                        Text="AUDIO"
+                                        TextColor="{StaticResource Primary}" />
+                                    <HorizontalStackLayout HorizontalOptions="Center" Spacing="5">
+                                        <BoxView HeightRequest="24" WidthRequest="5" CornerRadius="3" Color="{StaticResource Primary}" />
+                                        <BoxView HeightRequest="48" WidthRequest="5" CornerRadius="3" Color="{StaticResource Primary}" />
+                                        <BoxView HeightRequest="34" WidthRequest="5" CornerRadius="3" Color="{StaticResource Primary}" />
+                                        <BoxView HeightRequest="62" WidthRequest="5" CornerRadius="3" Color="{StaticResource Primary}" />
+                                        <BoxView HeightRequest="40" WidthRequest="5" CornerRadius="3" Color="{StaticResource Primary}" />
+                                        <BoxView HeightRequest="52" WidthRequest="5" CornerRadius="3" Color="{StaticResource Primary}" />
+                                        <BoxView HeightRequest="28" WidthRequest="5" CornerRadius="3" Color="{StaticResource Primary}" />
+                                    </HorizontalStackLayout>
+                                </VerticalStackLayout>
+                            </Border>
+
+                            <Border
+                                IsVisible="{Binding Details.ShowPreviewPlaceholder}"
+                                BackgroundColor="{StaticResource PrimarySoft}"
+                                StrokeThickness="0"
+                                StrokeShape="RoundRectangle 18">
+                                <VerticalStackLayout HorizontalOptions="Center" VerticalOptions="Center" Spacing="7">
+                                    <Label FontAttributes="Bold" Text="Preview unavailable" TextColor="{StaticResource Ink}" />
+                                    <Label FontSize="12" Text="Your original file is unchanged" TextColor="{StaticResource InkMuted}" />
+                                </VerticalStackLayout>
+                            </Border>
+
+                            <ActivityIndicator
+                                HorizontalOptions="Center"
+                                VerticalOptions="Center"
+                                IsRunning="{Binding Details.IsLoading}"
+                                IsVisible="{Binding Details.IsLoading}"
+                                Color="{StaticResource Primary}" />
+                        </Grid>
+
+                        <VerticalStackLayout Spacing="4">
+                            <Label
+                                FontAttributes="Bold"
+                                FontSize="19"
+                                LineBreakMode="TailTruncation"
+                                MaxLines="2"
+                                Text="{Binding Details.FileName}"
+                                TextColor="{StaticResource Ink}" />
+                            <Label FontSize="13" Text="{Binding Details.MediaType}" TextColor="{StaticResource Primary}" />
+                        </VerticalStackLayout>
+
+                        <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="10" RowSpacing="10">
+                            <Border Style="{StaticResource MetadataCell}">
+                                <VerticalStackLayout Spacing="3">
+                                    <Label FontSize="11" Text="FILE SIZE" TextColor="{StaticResource InkMuted}" />
+                                    <Label FontAttributes="Bold" Text="{Binding Details.FileSize}" TextColor="{StaticResource Ink}" />
+                                </VerticalStackLayout>
+                            </Border>
+                            <Border Grid.Column="1" IsVisible="{Binding Details.HasDuration}" Style="{StaticResource MetadataCell}">
+                                <VerticalStackLayout Spacing="3">
+                                    <Label FontSize="11" Text="DURATION" TextColor="{StaticResource InkMuted}" />
+                                    <Label FontAttributes="Bold" Text="{Binding Details.Duration}" TextColor="{StaticResource Ink}" />
+                                </VerticalStackLayout>
+                            </Border>
+                            <Border Grid.Row="1" IsVisible="{Binding Details.HasDimensions}" Style="{StaticResource MetadataCell}">
+                                <VerticalStackLayout Spacing="3">
+                                    <Label FontSize="11" Text="DIMENSIONS" TextColor="{StaticResource InkMuted}" />
+                                    <Label FontAttributes="Bold" Text="{Binding Details.Dimensions}" TextColor="{StaticResource Ink}" />
+                                </VerticalStackLayout>
+                            </Border>
+                            <Border Grid.Row="1" Grid.Column="1" IsVisible="{Binding Details.HasCodec}" Style="{StaticResource MetadataCell}">
+                                <VerticalStackLayout Spacing="3">
+                                    <Label FontSize="11" Text="CODEC / FORMAT" TextColor="{StaticResource InkMuted}" />
+                                    <Label
+                                        FontAttributes="Bold"
+                                        LineBreakMode="TailTruncation"
+                                        MaxLines="1"
+                                        Text="{Binding Details.Codec}"
+                                        TextColor="{StaticResource Ink}" />
+                                </VerticalStackLayout>
+                            </Border>
+                        </Grid>
+
+                        <Label
+                            FontSize="12"
+                            LineHeight="1.35"
+                            Text="{Binding Details.ErrorMessage}"
+                            TextColor="{StaticResource InkMuted}" />
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+        </ScrollView>
+
         <VerticalStackLayout Grid.Row="2" Spacing="10">
             <Label
                 IsVisible="{Binding HasMedia}"
@@ -166,14 +278,11 @@
                 HorizontalTextAlignment="Center"
                 Text="{Binding StatusMessage}"
                 TextColor="{StaticResource InkMuted}" />
-            <Button
-                Command="{Binding ImportMediaCommand}"
-                Style="{StaticResource PrimaryButton}"
-                Text="Choose media" />
+            <Button Command="{Binding ImportMediaCommand}" Style="{StaticResource PrimaryButton}" Text="Choose media" />
             <Label
                 HorizontalTextAlignment="Center"
                 FontSize="11"
-                Text="Uses the secure system picker • No broad storage access"
+                Text="Uses the secure system picker · No broad storage access"
                 TextColor="{StaticResource InkMuted}" />
         </VerticalStackLayout>
     </Grid>

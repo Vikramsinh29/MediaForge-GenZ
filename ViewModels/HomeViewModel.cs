@@ -15,9 +15,12 @@ public sealed class HomeViewModel : BaseViewModel
     private string _importedCountLabel = "0 media files";
     private string _statusMessage = string.Empty;
 
-    public HomeViewModel(IMediaImportService mediaImportService)
+    public HomeViewModel(
+        IMediaImportService mediaImportService,
+        MediaDetailsViewModel details)
     {
         _mediaImportService = mediaImportService;
+        Details = details;
         ImportMediaCommand = new Command(
             async () => await ImportMediaAsync(),
             () => !IsBusy);
@@ -26,6 +29,8 @@ public sealed class HomeViewModel : BaseViewModel
     }
 
     public ObservableCollection<MediaLibraryItemViewModel> MediaItems { get; } = [];
+
+    public MediaDetailsViewModel Details { get; }
 
     public Command ImportMediaCommand { get; }
 
@@ -102,7 +107,11 @@ public sealed class HomeViewModel : BaseViewModel
             {
                 if (_knownAssetIds.Add(asset.Id))
                 {
-                    MediaItems.Add(new MediaLibraryItemViewModel(asset, UpdateSelectionState));
+                    MediaItems.Add(
+                        new MediaLibraryItemViewModel(
+                            asset,
+                            UpdateSelectionState,
+                            OpenDetailsAsync));
                     added++;
                 }
             }
@@ -130,8 +139,12 @@ public sealed class HomeViewModel : BaseViewModel
         }
     }
 
+    private Task OpenDetailsAsync(MediaLibraryItemViewModel item) =>
+        Details.LoadAsync(item);
+
     private void ClearSelected()
     {
+        Details.Close();
         var selected = MediaItems.Where(item => item.IsSelected).ToArray();
         foreach (var item in selected)
         {
@@ -146,6 +159,7 @@ public sealed class HomeViewModel : BaseViewModel
 
     private void ClearAll()
     {
+        Details.Close();
         MediaItems.Clear();
         _knownAssetIds.Clear();
         StatusMessage = "Library cleared. Your original files were not changed.";

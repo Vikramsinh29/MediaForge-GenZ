@@ -15,16 +15,24 @@ current app is Android-first and keeps an iOS target ready for later development
 The core project deliberately has no MAUI, Android, iOS, Windows, WPF, or FFmpeg
 dependency.
 
-## Sprint 2: Media Import & Library
+## Media Import & Library
 
 The app uses the operating system's document picker to select multiple video,
 audio, and image files. It requests no broad storage permission. Imported entries
 retain lightweight file handles and basic properties only; file contents are not
-buffered and thumbnails are not extracted.
+buffered. Clearing the library never deletes original files.
 
-The in-memory library supports duplicate prevention, selection, clearing selected
-items, and clearing the full list. Clearing the library never deletes original
-files.
+## Lightweight Preview & Metadata
+
+Selecting a library card opens media details. Android reads metadata through the
+platform-neutral metadata contract using seek-based stream access. Images are
+decoded first for bounds and then sampled to a bounded preview. Video previews use
+a scaled frame API, and audio uses a local waveform placeholder. Corrupt,
+inaccessible, or unsupported details degrade to partial metadata without changing
+the source file.
+
+No full media playback, thumbnail extraction pipeline, transcoding, FFmpeg,
+network service, cloud feature, or AI feature is included.
 
 ## Build Android
 

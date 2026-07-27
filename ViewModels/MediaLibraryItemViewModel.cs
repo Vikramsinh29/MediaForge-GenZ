@@ -7,13 +7,19 @@ public sealed class MediaLibraryItemViewModel : BaseViewModel
     private readonly Action _selectionChanged;
     private bool _isSelected;
 
-    public MediaLibraryItemViewModel(MediaAsset asset, Action selectionChanged)
+    public MediaLibraryItemViewModel(
+        MediaAsset asset,
+        Action selectionChanged,
+        Func<MediaLibraryItemViewModel, Task> openDetails)
     {
         Asset = asset;
         _selectionChanged = selectionChanged;
+        OpenDetailsCommand = new Command(async () => await openDetails(this));
     }
 
     public MediaAsset Asset { get; }
+
+    public Command OpenDetailsCommand { get; }
 
     public string FileName => Asset.DisplayName;
 

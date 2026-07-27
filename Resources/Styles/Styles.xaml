@@ -16,6 +16,19 @@
         <Setter Property="StrokeThickness" Value="1" />
         <Setter Property="StrokeShape" Value="RoundRectangle 18" />
     </Style>
+    <Style x:Key="DetailsCard" TargetType="Border">
+        <Setter Property="Padding" Value="18" />
+        <Setter Property="BackgroundColor" Value="{StaticResource Surface}" />
+        <Setter Property="Stroke" Value="{StaticResource Line}" />
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="StrokeShape" Value="RoundRectangle 22" />
+    </Style>
+    <Style x:Key="MetadataCell" TargetType="Border">
+        <Setter Property="Padding" Value="14,11" />
+        <Setter Property="BackgroundColor" Value="{StaticResource Canvas}" />
+        <Setter Property="StrokeThickness" Value="0" />
+        <Setter Property="StrokeShape" Value="RoundRectangle 14" />
+    </Style>
     <Style x:Key="PrimaryButton" TargetType="Button">
         <Setter Property="HeightRequest" Value="54" />
         <Setter Property="BackgroundColor" Value="{StaticResource Primary}" />

@@ -8,4 +8,5 @@ public sealed record ConversionJob(
     DateTimeOffset UpdatedAt,
     double Progress = 0,
     string? StatusMessage = null,
-    string? ErrorMessage = null);
+    string? ErrorMessage = null,
+    MediaSourceReferenceState SourceReferenceState = MediaSourceReferenceState.Available);

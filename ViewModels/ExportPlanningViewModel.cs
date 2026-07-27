@@ -10,14 +10,20 @@ public sealed class ExportPlanningViewModel : BaseViewModel
     private readonly IConversionJobQueue _conversionJobQueue;
     private ExportPlan? _currentPlan;
     private MediaAsset? _source;
+    private string? _editingJobId;
     private bool _hasQueuedJobs;
+    private bool _isBusy;
+    private bool _isInitialized;
+    private bool _isPlanEditorVisible;
     private bool _isPlanValid;
+    private bool _isQueueEmpty = true;
     private bool _isVisible;
     private string _aspectRatio = string.Empty;
     private string _outputFileName = string.Empty;
     private string _outputFormat = string.Empty;
     private string _presetDescription = string.Empty;
     private string _quality = string.Empty;
+    private string _queueActionLabel = "Add plan to queue";
     private string _queueCountLabel = "0 planned exports";
     private string _queueMessage = string.Empty;
     private string _settingsSummary = string.Empty;
@@ -31,24 +37,55 @@ public sealed class ExportPlanningViewModel : BaseViewModel
         _exportPlanner = exportPlanner;
         _conversionJobQueue = conversionJobQueue;
         OpenCommand = new Command(Open);
+        OpenQueueCommand = new Command(OpenQueue);
         CloseCommand = new Command(Close);
-        QueuePlanCommand = new Command(QueuePlan, () => IsPlanValid && _currentPlan is not null);
+        CancelEditCommand = new Command(CancelEdit);
+        QueuePlanCommand = new Command(
+            async () => await SavePlanAsync(),
+            () => IsPlanValid && _currentPlan is not null && !IsBusy);
+        ClearQueueCommand = new Command(
+            async () => await ClearQueueAsync(),
+            () => HasQueuedJobs && !IsBusy);
     }
 
     public ObservableCollection<ExportPreset> CompatiblePresets { get; } = [];
 
-    public ObservableCollection<ConversionJob> QueuedJobs { get; } = [];
+    public ObservableCollection<QueuedExportViewModel> QueuedJobs { get; } = [];
 
     public Command OpenCommand { get; }
 
+    public Command OpenQueueCommand { get; }
+
     public Command CloseCommand { get; }
 
+    public Command CancelEditCommand { get; }
+
     public Command QueuePlanCommand { get; }
+
+    public Command ClearQueueCommand { get; }
 
     public bool IsVisible
     {
         get => _isVisible;
         private set => SetProperty(ref _isVisible, value);
+    }
+
+    public bool IsPlanEditorVisible
+    {
+        get => _isPlanEditorVisible;
+        private set => SetProperty(ref _isPlanEditorVisible, value);
+    }
+
+    public bool IsBusy
+    {
+        get => _isBusy;
+        private set
+        {
+            if (SetProperty(ref _isBusy, value))
+            {
+                RefreshCommands();
+            }
+        }
     }
 
     public bool IsPlanValid
@@ -66,7 +103,20 @@ public sealed class ExportPlanningViewModel : BaseViewModel
     public bool HasQueuedJobs
     {
         get => _hasQueuedJobs;
-        private set => SetProperty(ref _hasQueuedJobs, value);
+        private set
+        {
+            if (SetProperty(ref _hasQueuedJobs, value))
+            {
+                IsQueueEmpty = !value;
+                ClearQueueCommand.ChangeCanExecute();
+            }
+        }
+    }
+
+    public bool IsQueueEmpty
+    {
+        get => _isQueueEmpty;
+        private set => SetProperty(ref _isQueueEmpty, value);
     }
 
     public ExportPreset? SelectedPreset
@@ -135,27 +185,51 @@ public sealed class ExportPlanningViewModel : BaseViewModel
         private set => SetProperty(ref _queueMessage, value);
     }
 
+    public string QueueActionLabel
+    {
+        get => _queueActionLabel;
+        private set => SetProperty(ref _queueActionLabel, value);
+    }
+
+    public async Task InitializeAsync()
+    {
+        if (_isInitialized)
+        {
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            var result = await _conversionJobQueue.InitializeAsync();
+            _isInitialized = true;
+            QueueMessage = result.Message ?? string.Empty;
+            RefreshQueue();
+        }
+        catch
+        {
+            QueueMessage = "Saved plans could not be restored. You can still create a new queue.";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
     public void Prepare(MediaAsset source)
     {
         _source = source;
+        _editingJobId = null;
         IsVisible = false;
-        CompatiblePresets.Clear();
-
-        foreach (var preset in _exportPlanner.GetCompatiblePresets(source))
-        {
-            CompatiblePresets.Add(preset);
-        }
-
-        SelectedPreset = CompatiblePresets.FirstOrDefault();
-        if (SelectedPreset is null)
-        {
-            ClearPlan("No compatible export presets are available.");
-        }
+        IsPlanEditorVisible = true;
+        QueueActionLabel = "Add plan to queue";
+        LoadPresets(source, null);
     }
 
     public void Close()
     {
         IsVisible = false;
+        CancelEdit();
     }
 
     private void Open()
@@ -163,7 +237,40 @@ public sealed class ExportPlanningViewModel : BaseViewModel
         if (_source is not null)
         {
             IsVisible = true;
+            IsPlanEditorVisible = true;
             BuildPlan();
+        }
+    }
+
+    private void OpenQueue()
+    {
+        IsVisible = true;
+        IsPlanEditorVisible = false;
+        QueueMessage = HasQueuedJobs
+            ? QueueMessage
+            : "Your saved export plans will appear here.";
+    }
+
+    private void CancelEdit()
+    {
+        _editingJobId = null;
+        IsPlanEditorVisible = false;
+        QueueActionLabel = "Add plan to queue";
+    }
+
+    private void LoadPresets(MediaAsset source, string? presetId)
+    {
+        CompatiblePresets.Clear();
+        foreach (var preset in _exportPlanner.GetCompatiblePresets(source))
+        {
+            CompatiblePresets.Add(preset);
+        }
+
+        SelectedPreset = CompatiblePresets.FirstOrDefault(
+            preset => preset.Id == presetId) ?? CompatiblePresets.FirstOrDefault();
+        if (SelectedPreset is null)
+        {
+            ClearPlan("No compatible export presets are available.");
         }
     }
 
@@ -190,9 +297,8 @@ public sealed class ExportPlanningViewModel : BaseViewModel
         AspectRatio = FormatAspectRatio(plan.AspectRatio);
         OutputFileName = plan.ProposedOutputFileName;
         SettingsSummary = plan.SettingsSummary;
-        ValidationMessage = "Valid plan · your original file will never be overwritten.";
+        ValidationMessage = "Valid plan - your original file will never be overwritten.";
         IsPlanValid = !plan.OverwriteOriginal;
-        QueuePlanCommand.ChangeCanExecute();
     }
 
     private void ClearPlan(string message)
@@ -206,25 +312,130 @@ public sealed class ExportPlanningViewModel : BaseViewModel
         SettingsSummary = string.Empty;
         ValidationMessage = message;
         IsPlanValid = false;
-        QueuePlanCommand.ChangeCanExecute();
     }
 
-    private void QueuePlan()
+    private async Task SavePlanAsync()
     {
-        if (_currentPlan is null || !IsPlanValid)
+        if (_currentPlan is null || !IsPlanValid || IsBusy)
         {
             return;
         }
 
+        IsBusy = true;
         try
         {
-            _conversionJobQueue.Enqueue(_currentPlan);
+            if (_editingJobId is null)
+            {
+                await _conversionJobQueue.EnqueueAsync(_currentPlan);
+                QueueMessage = "Plan saved locally. No media or output file was copied.";
+            }
+            else
+            {
+                var result = await _conversionJobQueue.UpdatePlanAsync(
+                    _editingJobId,
+                    _currentPlan);
+                QueueMessage = result.IsValid
+                    ? "Queued plan updated."
+                    : string.Join(" ", result.Errors);
+            }
+
+            CancelEdit();
             RefreshQueue();
-            QueueMessage = "Queued for architecture preview only. No media engine is installed.";
         }
-        catch (ArgumentException exception)
+        catch
         {
-            QueueMessage = exception.Message;
+            QueueMessage = "The queue change could not be saved. Please try again.";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private Task EditAsync(QueuedExportViewModel item)
+    {
+        _editingJobId = item.Id;
+        _source = item.Job.Plan.Source;
+        QueueActionLabel = "Save queued plan";
+        IsPlanEditorVisible = true;
+        LoadPresets(_source, item.Job.Plan.Preset.Id);
+        return Task.CompletedTask;
+    }
+
+    private Task MoveUpAsync(QueuedExportViewModel item) =>
+        MoveAsync(item, item.Position - 2);
+
+    private Task MoveDownAsync(QueuedExportViewModel item) =>
+        MoveAsync(item, item.Position);
+
+    private async Task MoveAsync(QueuedExportViewModel item, int newIndex)
+    {
+        await RunQueueActionAsync(
+            () => _conversionJobQueue.MoveAsync(item.Id, newIndex),
+            "Queue order updated.");
+    }
+
+    private async Task RemoveAsync(QueuedExportViewModel item)
+    {
+        await RunQueueActionAsync(
+            () => _conversionJobQueue.RemoveAsync(item.Id),
+            "Planned export removed.");
+        if (_editingJobId == item.Id)
+        {
+            CancelEdit();
+        }
+    }
+
+    private async Task ClearQueueAsync()
+    {
+        if (IsBusy)
+        {
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            await _conversionJobQueue.ClearAsync();
+            CancelEdit();
+            QueueMessage = "All planned exports cleared. Original media was untouched.";
+            RefreshQueue();
+        }
+        catch
+        {
+            QueueMessage = "The queue could not be cleared. Please try again.";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private async Task RunQueueActionAsync(
+        Func<Task<ValidationResult>> action,
+        string successMessage)
+    {
+        if (IsBusy)
+        {
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            var result = await action();
+            QueueMessage = result.IsValid
+                ? successMessage
+                : string.Join(" ", result.Errors);
+            RefreshQueue();
+        }
+        catch
+        {
+            QueueMessage = "The queue change could not be saved. Please try again.";
+        }
+        finally
+        {
+            IsBusy = false;
         }
     }
 
@@ -233,11 +444,28 @@ public sealed class ExportPlanningViewModel : BaseViewModel
         QueuedJobs.Clear();
         foreach (var job in _conversionJobQueue.GetSnapshot())
         {
-            QueuedJobs.Add(job);
+            QueuedJobs.Add(
+                new QueuedExportViewModel(
+                    job,
+                    EditAsync,
+                    MoveUpAsync,
+                    MoveDownAsync,
+                    RemoveAsync));
+        }
+
+        for (var index = 0; index < QueuedJobs.Count; index++)
+        {
+            QueuedJobs[index].SetPosition(index, QueuedJobs.Count);
         }
 
         HasQueuedJobs = QueuedJobs.Count > 0;
         QueueCountLabel = $"{QueuedJobs.Count} planned export{(QueuedJobs.Count == 1 ? string.Empty : "s")}";
+    }
+
+    private void RefreshCommands()
+    {
+        QueuePlanCommand.ChangeCanExecute();
+        ClearQueueCommand.ChangeCanExecute();
     }
 
     private static string FormatOutputFormat(OutputFormat format) =>
@@ -256,7 +484,7 @@ public sealed class ExportPlanningViewModel : BaseViewModel
     private static string FormatQuality(ExportQuality quality) =>
         quality switch
         {
-            ExportQuality.Compact => "Compact · smaller file",
+            ExportQuality.Compact => "Compact - smaller file",
             ExportQuality.Balanced => "Balanced",
             ExportQuality.High => "High quality",
             _ => quality.ToString()

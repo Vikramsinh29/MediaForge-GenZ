@@ -85,6 +85,19 @@ configuration flags and native binary artifacts:
 The guard is a technical control, not legal advice, compliance certification, or
 production-readiness approval.
 
+## Persistent Conversion Queue
+
+Sprint 7 stores ordered export plans as a versioned JSON document in app-owned
+local data. Users can reorder, edit, remove, and clear planned jobs. Saves use a
+temporary document followed by replacement so an interrupted write cannot expose
+a partially written queue.
+
+Only lightweight plan and source-reference metadata is stored. Media bytes,
+previews, outputs, native handles, and platform picker objects are never persisted.
+If scoped source access is unavailable after restart, the plan remains visible
+and is clearly marked for source reselection. The queue still performs no
+conversion and creates no media output.
+
 ## Build Android
 
 ```powershell

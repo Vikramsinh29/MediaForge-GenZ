@@ -6,7 +6,9 @@ using MediaForge.GenZ.Core.Models;
 
 namespace MediaForge.Universal.Services;
 
-public sealed class SystemMediaImportService : IMediaImportService
+public sealed class SystemMediaImportService :
+    IMediaImportService,
+    IMediaSourceReferenceValidator
 {
     private static readonly HashSet<string> SupportedExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -83,6 +85,23 @@ public sealed class SystemMediaImportService : IMediaImportService
         }
 
         return file.OpenReadAsync();
+    }
+
+    public Task<MediaSourceReferenceState> GetStateAsync(
+        MediaAsset source,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (string.IsNullOrWhiteSpace(source.Id) ||
+            string.IsNullOrWhiteSpace(source.DisplayName))
+        {
+            return Task.FromResult(MediaSourceReferenceState.Invalid);
+        }
+
+        return Task.FromResult(
+            _fileHandles.ContainsKey(source.Id)
+                ? MediaSourceReferenceState.Available
+                : MediaSourceReferenceState.Unavailable);
     }
 
     private static bool IsSupported(FileResult file)

@@ -18,6 +18,28 @@ binary, output writer, or conversion execution in the repository.
 Core must not reference MAUI, Android, iOS, a command-line syntax, native paths,
 FFmpeg types, file-picker types, or UI state.
 
+## Queue persistence boundary
+
+`IConversionJobQueue` owns ordered, editable planning jobs.
+`IConversionQueueStore` is the platform-neutral persistence boundary, and
+`IMediaSourceReferenceValidator` reports whether a saved source reference is
+usable in the current app session.
+
+The versioned queue document contains only lightweight `ExportPlan` and job
+metadata. It never contains media bytes, thumbnails, output bytes, platform file
+objects, or native handles. The application adapter stores the JSON document
+under app-owned data and replaces it through a temporary file so an interrupted
+save does not partially overwrite the last complete document.
+
+Startup restoration accepts only the current document version, queued lifecycle
+state, and plans that preserve the distinct-name/no-overwrite rules. Invalid or
+outdated records are skipped with a user-visible diagnostic. A source reference
+that cannot be reopened is retained as an unavailable plan so the user can review,
+edit, reorder, or remove it; it must be selected again before future execution.
+
+Queue persistence does not authorize transcoding, source copying, output
+creation, background work, or temporary-media cleanup.
+
 The valid job lifecycle is:
 
 ```text

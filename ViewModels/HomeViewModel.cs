@@ -45,6 +45,8 @@ public sealed class HomeViewModel : BaseViewModel
     public string Description =>
         "Choose videos, audio, and images with Android's secure picker. Your files stay on your device.";
 
+    public Task InitializeAsync() => Details.Export.InitializeAsync();
+
     public bool HasMedia
     {
         get => _hasMedia;

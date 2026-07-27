@@ -23,9 +23,14 @@ public static class MauiProgram
                 fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
             });
 
-        builder.Services.AddSingleton<IMediaImportService, SystemMediaImportService>();
+        builder.Services.AddSingleton<SystemMediaImportService>();
+        builder.Services.AddSingleton<IMediaImportService>(
+            services => services.GetRequiredService<SystemMediaImportService>());
+        builder.Services.AddSingleton<IMediaSourceReferenceValidator>(
+            services => services.GetRequiredService<SystemMediaImportService>());
         builder.Services.AddSingleton<IExportPlanner, ExportPlanner>();
-        builder.Services.AddSingleton<IConversionJobQueue, InMemoryConversionJobQueue>();
+        builder.Services.AddSingleton<IConversionQueueStore, AppDataConversionQueueStore>();
+        builder.Services.AddSingleton<IConversionJobQueue, PersistentConversionJobQueue>();
 #if ANDROID
         builder.Services.AddSingleton<IMetadataReader, AndroidMediaMetadataReader>();
         builder.Services.AddSingleton<IMediaPreviewService, AndroidMediaPreviewService>();

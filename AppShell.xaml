@@ -3,12 +3,8 @@
     x:Class="MediaForge.Universal.AppShell"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    xmlns:local="clr-namespace:MediaForge.Universal"
-    Title="MediaForge.Universal">
-
-    <ShellContent
-        Title="Home"
-        ContentTemplate="{DataTemplate local:MainPage}"
-        Route="MainPage" />
-
+    Shell.NavBarIsVisible="False"
+    FlyoutBehavior="Disabled"
+    Title="MediaForge GenZ">
+    <ShellContent x:Name="HomeContent" Route="Home" />
 </Shell>

@@ -1,4 +1,4 @@
-namespace MediaForge.Core.Models;
+namespace MediaForge.GenZ.Core.Models;
 
 public enum JobStatus
 {

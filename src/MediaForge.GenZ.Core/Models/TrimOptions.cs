@@ -1,11 +1,6 @@
-namespace MediaForge.Core.Models;
+namespace MediaForge.GenZ.Core.Models;
 
-public sealed class TrimOptions
+public sealed record TrimOptions(TimeSpan? Start = null, TimeSpan? End = null)
 {
-    public TimeSpan? Start { get; set; }
-
-    public TimeSpan? End { get; set; }
-
-    public bool Enabled =>
-        Start.HasValue || End.HasValue;
+    public bool Enabled => Start.HasValue || End.HasValue;
 }

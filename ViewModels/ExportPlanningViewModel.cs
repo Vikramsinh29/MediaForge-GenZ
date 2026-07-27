@@ -8,6 +8,8 @@ public sealed class ExportPlanningViewModel : BaseViewModel
 {
     private readonly IExportPlanner _exportPlanner;
     private readonly IConversionJobQueue _conversionJobQueue;
+    private readonly IConversionJobRunner _conversionJobRunner;
+    private readonly Dictionary<string, CancellationTokenSource> _runningJobs = new();
     private ExportPlan? _currentPlan;
     private MediaAsset? _source;
     private string? _editingJobId;
@@ -24,7 +26,7 @@ public sealed class ExportPlanningViewModel : BaseViewModel
     private string _presetDescription = string.Empty;
     private string _quality = string.Empty;
     private string _queueActionLabel = "Add plan to queue";
-    private string _queueCountLabel = "0 planned exports";
+    private string _queueCountLabel = "0 export jobs";
     private string _queueMessage = string.Empty;
     private string _settingsSummary = string.Empty;
     private string _validationMessage = string.Empty;
@@ -32,10 +34,12 @@ public sealed class ExportPlanningViewModel : BaseViewModel
 
     public ExportPlanningViewModel(
         IExportPlanner exportPlanner,
-        IConversionJobQueue conversionJobQueue)
+        IConversionJobQueue conversionJobQueue,
+        IConversionJobRunner conversionJobRunner)
     {
         _exportPlanner = exportPlanner;
         _conversionJobQueue = conversionJobQueue;
+        _conversionJobRunner = conversionJobRunner;
         OpenCommand = new Command(Open);
         OpenQueueCommand = new Command(OpenQueue);
         CloseCommand = new Command(Close);
@@ -386,6 +390,52 @@ public sealed class ExportPlanningViewModel : BaseViewModel
         }
     }
 
+    private async Task RunAsync(QueuedExportViewModel item)
+    {
+        if (_runningJobs.ContainsKey(item.Id))
+        {
+            return;
+        }
+
+        var cancellation = new CancellationTokenSource();
+        _runningJobs.Add(item.Id, cancellation);
+        item.SetRunning();
+        QueueMessage = "Development conversion is running locally. Do not distribute this build.";
+        try
+        {
+            var progress = new Progress<ConversionJobProgress>(item.Report);
+            var result = await _conversionJobRunner.RunAsync(
+                item.Id,
+                progress,
+                cancellation.Token);
+            var message = result.Success
+                ? $"Validated output saved as {result.Output?.DisplayName}."
+                : result.ErrorMessage ?? "Development conversion failed.";
+            item.Finish(message, result.Success);
+            QueueMessage = message;
+        }
+        finally
+        {
+            _runningJobs.Remove(item.Id);
+            cancellation.Dispose();
+            RefreshQueue();
+        }
+    }
+
+    private void Cancel(QueuedExportViewModel item)
+    {
+        if (_runningJobs.TryGetValue(item.Id, out var cancellation))
+        {
+            item.Report(
+                new ConversionJobProgress(
+                    item.Id,
+                    ConversionJobState.Processing,
+                    item.Progress,
+                    Message: "Cancelling safely..."));
+            cancellation.Cancel();
+        }
+    }
+
     private async Task ClearQueueAsync()
     {
         if (IsBusy)
@@ -447,10 +497,13 @@ public sealed class ExportPlanningViewModel : BaseViewModel
             QueuedJobs.Add(
                 new QueuedExportViewModel(
                     job,
+                    _conversionJobRunner.CanRun(job),
                     EditAsync,
                     MoveUpAsync,
                     MoveDownAsync,
-                    RemoveAsync));
+                    RemoveAsync,
+                    RunAsync,
+                    Cancel));
         }
 
         for (var index = 0; index < QueuedJobs.Count; index++)
@@ -459,7 +512,7 @@ public sealed class ExportPlanningViewModel : BaseViewModel
         }
 
         HasQueuedJobs = QueuedJobs.Count > 0;
-        QueueCountLabel = $"{QueuedJobs.Count} planned export{(QueuedJobs.Count == 1 ? string.Empty : "s")}";
+        QueueCountLabel = $"{QueuedJobs.Count} export job{(QueuedJobs.Count == 1 ? string.Empty : "s")}";
     }
 
     private void RefreshCommands()

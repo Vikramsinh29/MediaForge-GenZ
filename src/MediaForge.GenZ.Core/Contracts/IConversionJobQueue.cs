@@ -29,12 +29,15 @@ public interface IConversionJobQueue
 
     Task ClearAsync(CancellationToken cancellationToken = default);
 
-    ValidationResult Transition(
+    Task<ValidationResult> TransitionAsync(
         string jobId,
         ConversionJobState nextState,
         double? progress = null,
         string? statusMessage = null,
-        string? errorMessage = null);
+        string? errorMessage = null,
+        CancellationToken cancellationToken = default);
 
-    ValidationResult Cancel(string jobId);
+    Task<ValidationResult> CancelAsync(
+        string jobId,
+        CancellationToken cancellationToken = default);
 }

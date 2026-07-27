@@ -10,7 +10,8 @@ current app is Android-first and keeps an iOS target ready for later development
 - `src/MediaForge.GenZ.Core` contains platform-neutral models and contracts.
 - Platform services implement the core contracts without leaking device APIs into
   view models.
-- No media conversion is implemented yet.
+- Normal builds contain no media engine. A source-only, development-gated
+  Android WAV-to-M4A proof is available for private local testing.
 
 The core project deliberately has no MAUI, Android, iOS, Windows, WPF, or FFmpeg
 dependency.
@@ -84,6 +85,19 @@ configuration flags and native binary artifacts:
 
 The guard is a technical control, not legal advice, compliance certification, or
 production-readiness approval.
+
+## Development-only Android Transcoding Proof
+
+Sprint 8 adds a narrow WAV-to-AAC/M4A execution path behind the existing neutral
+queue, transcoder, and output-storage contracts. Source access is scoped,
+progress and cancellation update the queue lifecycle, output is first temporary,
+and Android validates the AAC stream before collision-safe finalisation.
+
+No FFmpeg source or binary is stored in this repository. Normal builds do not
+package a native engine. The pinned external build evidence and opt-in bridge
+instructions are in
+[`docs/ANDROID_TRANSCODING_POC.md`](docs/ANDROID_TRANSCODING_POC.md). This is
+private development work pending legal review, not approval or certification.
 
 ## Persistent Conversion Queue
 

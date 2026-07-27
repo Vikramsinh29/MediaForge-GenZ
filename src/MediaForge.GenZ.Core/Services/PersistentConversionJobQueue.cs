@@ -222,77 +222,78 @@ public sealed class PersistentConversionJobQueue(
         }
     }
 
-    public ValidationResult Transition(
+    public Task<ValidationResult> TransitionAsync(
         string jobId,
         ConversionJobState nextState,
         double? progress = null,
         string? statusMessage = null,
-        string? errorMessage = null)
+        string? errorMessage = null,
+        CancellationToken cancellationToken = default) =>
+        MutateAsync(
+            jobs =>
+            {
+                var index = jobs.FindIndex(job => job.Id == jobId);
+                if (index < 0)
+                {
+                    return ValidationResult.Failure("The conversion job was not found.");
+                }
+
+                var current = jobs[index];
+                if (!AllowedTransitions[current.State].Contains(nextState))
+                {
+                    return ValidationResult.Failure(
+                        $"A job cannot move from {current.State} to {nextState}.");
+                }
+
+                var nextProgress = progress ?? current.Progress;
+                if (nextProgress is < 0 or > 1)
+                {
+                    return ValidationResult.Failure("Progress must be between 0 and 1.");
+                }
+
+                if (nextState == ConversionJobState.Completed)
+                {
+                    nextProgress = 1;
+                }
+
+                if (nextState == ConversionJobState.Failed &&
+                    string.IsNullOrWhiteSpace(errorMessage))
+                {
+                    return ValidationResult.Failure("A failed job requires an error message.");
+                }
+
+                jobs[index] = current with
+                {
+                    State = nextState,
+                    Progress = nextProgress,
+                    StatusMessage = statusMessage,
+                    ErrorMessage = errorMessage,
+                    UpdatedAt = DateTimeOffset.UtcNow
+                };
+                return ValidationResult.Success;
+            },
+            cancellationToken);
+
+    public async Task<ValidationResult> CancelAsync(
+        string jobId,
+        CancellationToken cancellationToken = default)
     {
-        lock (_snapshotLock)
+        var current = GetSnapshot().FirstOrDefault(job => job.Id == jobId);
+        if (current is null)
         {
-            var index = _jobs.FindIndex(job => job.Id == jobId);
-            if (index < 0)
-            {
-                return ValidationResult.Failure("The conversion job was not found.");
-            }
+            return ValidationResult.Failure("The conversion job was not found.");
+        }
 
-            var current = _jobs[index];
-            if (!AllowedTransitions[current.State].Contains(nextState))
-            {
-                return ValidationResult.Failure(
-                    $"A job cannot move from {current.State} to {nextState}.");
-            }
-
-            var nextProgress = progress ?? current.Progress;
-            if (nextProgress is < 0 or > 1)
-            {
-                return ValidationResult.Failure("Progress must be between 0 and 1.");
-            }
-
-            if (nextState == ConversionJobState.Completed)
-            {
-                nextProgress = 1;
-            }
-
-            if (nextState == ConversionJobState.Failed &&
-                string.IsNullOrWhiteSpace(errorMessage))
-            {
-                return ValidationResult.Failure("A failed job requires an error message.");
-            }
-
-            _jobs[index] = current with
-            {
-                State = nextState,
-                Progress = nextProgress,
-                StatusMessage = statusMessage,
-                ErrorMessage = errorMessage,
-                UpdatedAt = DateTimeOffset.UtcNow
-            };
+        if (current.State == ConversionJobState.Cancelled)
+        {
             return ValidationResult.Success;
         }
-    }
 
-    public ValidationResult Cancel(string jobId)
-    {
-        lock (_snapshotLock)
-        {
-            var current = _jobs.FirstOrDefault(job => job.Id == jobId);
-            if (current is null)
-            {
-                return ValidationResult.Failure("The conversion job was not found.");
-            }
-
-            if (current.State == ConversionJobState.Cancelled)
-            {
-                return ValidationResult.Success;
-            }
-        }
-
-        return Transition(
+        return await TransitionAsync(
             jobId,
             ConversionJobState.Cancelled,
-            statusMessage: "Cancelled before finalisation.");
+            statusMessage: "Cancelled before finalisation.",
+            cancellationToken: cancellationToken);
     }
 
     private async Task<ValidationResult> MutateAsync(

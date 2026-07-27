@@ -2,8 +2,9 @@
 
 ## Status and scope
 
-Sprint 5 defines boundaries only. There is no engine implementation, native
-binary, output writer, or conversion execution in the repository.
+The repository contains a source-only, development-gated Android WAV-to-M4A
+adapter proof. It contains no native binary. Normal builds remain binary-free,
+and the iOS boundary remains unimplemented.
 
 ## Core contract boundary
 
@@ -74,9 +75,11 @@ than shell execution, write only to `IOutputStorage` temporary output, report
 normalized progress, honor cancellation, validate the resulting container/audio
 stream, and finalise only through the existing no-overwrite boundary.
 
-No adapter is present while the NDK/CMake/source prerequisite gate in
-`ANDROID_TRANSCODING_POC.md` is blocked. Local native artifacts must remain
-outside the repository and must never be packaged for distribution.
+The Android proof stages scoped input to app-private cache storage, calls a typed
+C ABI bridge, copies output through `IOutputStorage`, validates AAC/M4A with the
+Android media extractor, then uses a collision-safe atomic move. Native artifacts
+remain outside the repository and are included only in an explicitly opted-in
+private development build. They must never be committed or distributed.
 
 ## Future iOS native adapter boundary
 

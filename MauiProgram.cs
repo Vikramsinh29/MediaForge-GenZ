@@ -34,13 +34,18 @@ public static class MauiProgram
 #if ANDROID
         builder.Services.AddSingleton<IMetadataReader, AndroidMediaMetadataReader>();
         builder.Services.AddSingleton<IMediaPreviewService, AndroidMediaPreviewService>();
+        builder.Services.AddSingleton<ITranscoder, AndroidPocTranscoder>();
+        builder.Services.AddSingleton<IOutputStorage, AndroidAppOutputStorage>();
 #else
         builder.Services.AddSingleton<FallbackMediaInspector>();
         builder.Services.AddSingleton<IMetadataReader>(
             services => services.GetRequiredService<FallbackMediaInspector>());
         builder.Services.AddSingleton<IMediaPreviewService>(
             services => services.GetRequiredService<FallbackMediaInspector>());
+        builder.Services.AddSingleton<ITranscoder, UnavailableTranscoder>();
+        builder.Services.AddSingleton<IOutputStorage, UnavailableOutputStorage>();
 #endif
+        builder.Services.AddSingleton<IConversionJobRunner, ConversionJobRunner>();
         builder.Services.AddSingleton<ExportPlanningViewModel>();
         builder.Services.AddSingleton<MediaDetailsViewModel>();
         builder.Services.AddSingleton<HomeViewModel>();

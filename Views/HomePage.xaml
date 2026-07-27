@@ -448,7 +448,7 @@
                                     <Label
                                         HorizontalTextAlignment="Center"
                                         FontAttributes="Bold"
-                                        Text="No planned exports yet"
+                                        Text="No export jobs yet"
                                         TextColor="{StaticResource Ink}" />
                                     <Label
                                         HorizontalTextAlignment="Center"
@@ -504,6 +504,36 @@
                                                     FontSize="11"
                                                     Text="{Binding StatusMessage}"
                                                     TextColor="{StaticResource InkMuted}" />
+                                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                                    <ProgressBar
+                                                        Progress="{Binding Progress}"
+                                                        IsVisible="{Binding ShowProgress}"
+                                                        ProgressColor="{StaticResource Primary}"
+                                                        VerticalOptions="Center" />
+                                                    <Border
+                                                        Grid.Column="1"
+                                                        Padding="8,3"
+                                                        BackgroundColor="{StaticResource PrimarySoft}"
+                                                        StrokeThickness="0"
+                                                        StrokeShape="RoundRectangle 10">
+                                                        <Label
+                                                            FontAttributes="Bold"
+                                                            FontSize="10"
+                                                            Text="{Binding StateLabel}"
+                                                            TextColor="{StaticResource Primary}" />
+                                                    </Border>
+                                                </Grid>
+                                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                                                    <Button
+                                                        Command="{Binding RunCommand}"
+                                                        Style="{StaticResource PrimaryButton}"
+                                                        Text="Run WAV → M4A POC" />
+                                                    <Button
+                                                        Grid.Column="1"
+                                                        Command="{Binding CancelCommand}"
+                                                        Style="{StaticResource TextButton}"
+                                                        Text="Cancel" />
+                                                </Grid>
                                                 <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="4">
                                                     <Button Command="{Binding MoveUpCommand}" Style="{StaticResource TextButton}" Text="Up" />
                                                     <Button Grid.Column="1" Command="{Binding MoveDownCommand}" Style="{StaticResource TextButton}" Text="Down" />

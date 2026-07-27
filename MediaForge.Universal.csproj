@@ -38,4 +38,19 @@
   <ItemGroup>
     <ProjectReference Include="src\MediaForge.GenZ.Core\MediaForge.GenZ.Core.csproj" />
   </ItemGroup>
+
+  <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android' and '$(MediaForgeNativePocLibrary)' != ''">
+    <AndroidNativeLibrary Include="$(MediaForgeNativePocLibrary)">
+      <Abi>arm64-v8a</Abi>
+    </AndroidNativeLibrary>
+  </ItemGroup>
+
+  <Target
+    Name="ValidateMediaForgeNativePocLibrary"
+    BeforeTargets="Build"
+    Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android' and '$(MediaForgeNativePocLibrary)' != ''">
+    <Error
+      Condition="!Exists('$(MediaForgeNativePocLibrary)')"
+      Text="The development-only MediaForge native POC library was not found. Build it outside the repository or omit MediaForgeNativePocLibrary." />
+  </Target>
 </Project>

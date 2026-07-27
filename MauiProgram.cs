@@ -44,6 +44,11 @@ public static class MauiProgram
         builder.Services.AddSingleton<IMediaPreviewService, AndroidMediaPreviewService>();
         builder.Services.AddSingleton<ITranscoder, AndroidPocTranscoder>();
         builder.Services.AddSingleton<IOutputStorage, AndroidAppOutputStorage>();
+        builder.Services.AddSingleton<AndroidOutputActions>();
+        builder.Services.AddSingleton<IOutputOpener>(
+            services => services.GetRequiredService<AndroidOutputActions>());
+        builder.Services.AddSingleton<IShareService>(
+            services => services.GetRequiredService<AndroidOutputActions>());
 #else
         builder.Services.AddSingleton<FallbackMediaInspector>();
         builder.Services.AddSingleton<IMetadataReader>(
@@ -52,6 +57,11 @@ public static class MauiProgram
             services => services.GetRequiredService<FallbackMediaInspector>());
         builder.Services.AddSingleton<ITranscoder, UnavailableTranscoder>();
         builder.Services.AddSingleton<IOutputStorage, UnavailableOutputStorage>();
+        builder.Services.AddSingleton<UnavailableOutputActions>();
+        builder.Services.AddSingleton<IOutputOpener>(
+            services => services.GetRequiredService<UnavailableOutputActions>());
+        builder.Services.AddSingleton<IShareService>(
+            services => services.GetRequiredService<UnavailableOutputActions>());
 #endif
         builder.Services.AddSingleton<IConversionJobRunner, ConversionJobRunner>();
         builder.Services.AddSingleton<ExportPlanningViewModel>();

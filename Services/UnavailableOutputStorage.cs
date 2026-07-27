@@ -28,4 +28,9 @@ public sealed class UnavailableOutputStorage : IOutputStorage
         TemporaryOutput temporaryOutput,
         CancellationToken cancellationToken = default) =>
         Task.CompletedTask;
+
+    public Task DiscardFinalizedAsync(
+        MediaAsset output,
+        CancellationToken cancellationToken = default) =>
+        Task.CompletedTask;
 }

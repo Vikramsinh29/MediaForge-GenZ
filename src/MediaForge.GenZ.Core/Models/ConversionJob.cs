@@ -9,4 +9,5 @@ public sealed record ConversionJob(
     double Progress = 0,
     string? StatusMessage = null,
     string? ErrorMessage = null,
-    MediaSourceReferenceState SourceReferenceState = MediaSourceReferenceState.Available);
+    MediaSourceReferenceState SourceReferenceState = MediaSourceReferenceState.Available,
+    MediaAsset? Output = null);

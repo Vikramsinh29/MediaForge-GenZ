@@ -35,6 +35,7 @@ public interface IConversionJobQueue
         double? progress = null,
         string? statusMessage = null,
         string? errorMessage = null,
+        MediaAsset? completedOutput = null,
         CancellationToken cancellationToken = default);
 
     Task<ValidationResult> CancelAsync(

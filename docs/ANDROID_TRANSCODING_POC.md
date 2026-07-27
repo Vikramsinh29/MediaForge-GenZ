@@ -178,3 +178,43 @@ Device proof completed on an Android 14 ARM64 Xiaomi device:
 This proves only the private WAV-to-M4A development path on the tested device.
 It is not broad device compatibility, legal approval, compliance certification,
 production readiness, or permission to distribute an APK or native artifact.
+
+## Sprint 9 development-only output finalisation
+
+After the temporary M4A has passed Android's AAC/container validation, Android
+10 and later use `MediaStore.Audio` to reserve a collision-free item under
+`Music/MediaForge GenZ`. The item remains pending and invisible to ordinary
+media consumers while the app copies the validated private temporary file.
+MediaForge then reopens the MediaStore item, verifies that it is non-empty and
+contains a readable AAC track, and only then clears the pending flag. A failed
+copy, validation, publication, or cancellation deletes the pending item and the
+app-private temporary file on a best-effort basis.
+
+If persistence of the queue's final `Completed` transition fails after
+publication, the output adapter rolls back that newly finalized item. This
+rollback is limited to the not-yet-acknowledged finalisation path; clearing an
+already completed queue entry never deletes the exported file.
+
+The queue stores only the resulting opaque content URI and lightweight file
+metadata for the completed job, including across app restarts. It never stores
+media bytes. Completed cards can:
+
+- open the published M4A with a compatible Android app;
+- share it through Android's system chooser using temporary read access; and
+- clear the queue entry without deleting the MediaStore output.
+
+No broad storage or media permission is requested. Android versions before 10
+fall back to app-private final storage because permission-free public
+MediaStore publication is not consistently available there. That fallback is
+not advertised as user-visible and its open/share actions remain unavailable.
+
+The MediaStore file survives clearing its queue entry and normal app restarts.
+A user can delete or move the file outside MediaForge, in which case later
+open/share attempts report that the output is unavailable. Storage exhaustion,
+provider failures, missing
+viewer/share targets, and cancelled system actions are reported without
+changing the original WAV or exposing a partial export.
+
+This output flow does not expand the proof beyond individual WAV-to-AAC/M4A
+jobs. It adds no batch execution, video/image conversion, iOS implementation,
+distribution approval, or compliance certification.

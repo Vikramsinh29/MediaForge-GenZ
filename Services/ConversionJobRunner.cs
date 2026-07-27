@@ -89,12 +89,28 @@ public sealed class ConversionJobRunner(
                 cancellationToken);
             temporary = null;
 
-            await queue.TransitionAsync(
-                job.Id,
-                ConversionJobState.Completed,
-                progress: 1,
-                statusMessage: $"Completed: {output.DisplayName}",
-                cancellationToken: cancellationToken);
+            ValidationResult completion;
+            try
+            {
+                completion = await queue.TransitionAsync(
+                    job.Id,
+                    ConversionJobState.Completed,
+                    progress: 1,
+                    statusMessage: $"Completed: {output.DisplayName}",
+                    completedOutput: output,
+                    cancellationToken: CancellationToken.None);
+            }
+            catch
+            {
+                await outputStorage.DiscardFinalizedAsync(output, CancellationToken.None);
+                throw;
+            }
+
+            if (!completion.IsValid)
+            {
+                await outputStorage.DiscardFinalizedAsync(output, CancellationToken.None);
+                throw new InvalidOperationException(string.Join(" ", completion.Errors));
+            }
 
             progress?.Report(
                 new ConversionJobProgress(

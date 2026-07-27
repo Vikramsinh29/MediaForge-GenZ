@@ -1,5 +1,9 @@
 #if ANDROID
 using System.Security.Cryptography;
+using System.Runtime.Versioning;
+using Android.Content;
+using Android.OS;
+using Android.Provider;
 using MediaForge.GenZ.Core.Contracts;
 using MediaForge.GenZ.Core.Models;
 
@@ -7,10 +11,13 @@ namespace MediaForge.Universal.Platforms.Android.Services;
 
 public sealed class AndroidAppOutputStorage : IOutputStorage
 {
+    private const string OutputMimeType = "audio/mp4";
+    private const string RelativeOutputPath = "Music/MediaForge GenZ/";
+    private readonly Context _context = global::Android.App.Application.Context;
     private readonly string _temporaryRoot = Path.Combine(
         global::Android.App.Application.Context.CacheDir!.AbsolutePath,
         "conversion-output");
-    private readonly string _finalRoot = Path.Combine(
+    private readonly string _legacyFinalRoot = Path.Combine(
         FileSystem.AppDataDirectory,
         "DevelopmentExports");
 
@@ -20,9 +27,11 @@ public sealed class AndroidAppOutputStorage : IOutputStorage
     {
         cancellationToken.ThrowIfCancellationRequested();
         Directory.CreateDirectory(_temporaryRoot);
-        var id = Guid.NewGuid().ToString("N");
         return Task.FromResult(
-            new TemporaryOutput(id, job.Plan.ProposedOutputFileName, "audio/mp4"));
+            new TemporaryOutput(
+                Guid.NewGuid().ToString("N"),
+                job.Plan.ProposedOutputFileName,
+                OutputMimeType));
     }
 
     public Task<Stream> OpenTemporaryWriteAsync(
@@ -30,9 +39,8 @@ public sealed class AndroidAppOutputStorage : IOutputStorage
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var path = GetTemporaryPath(temporaryOutput);
         Stream stream = new FileStream(
-            path,
+            GetTemporaryPath(temporaryOutput),
             FileMode.CreateNew,
             FileAccess.Write,
             FileShare.None,
@@ -41,7 +49,7 @@ public sealed class AndroidAppOutputStorage : IOutputStorage
         return Task.FromResult(stream);
     }
 
-    public Task<MediaAsset> FinalizeAtomicallyAsync(
+    public async Task<MediaAsset> FinalizeAtomicallyAsync(
         TemporaryOutput temporaryOutput,
         ExportPlan approvedPlan,
         CancellationToken cancellationToken = default)
@@ -50,15 +58,16 @@ public sealed class AndroidAppOutputStorage : IOutputStorage
         EnsureSafePlan(approvedPlan);
         var temporaryPath = GetTemporaryPath(temporaryOutput);
         ValidateM4A(temporaryPath);
-        Directory.CreateDirectory(_finalRoot);
 
-        var finalPath = GetCollisionSafePath(approvedPlan.ProposedOutputFileName);
-        File.Move(temporaryPath, finalPath, false);
-        var info = new FileInfo(finalPath);
-        var id = Convert.ToHexString(
-            SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(finalPath)));
-        return Task.FromResult(
-            new MediaAsset(id, info.Name, "audio/mp4", info.Length));
+        return OperatingSystem.IsAndroidVersionAtLeast(29)
+            ? await PublishToMediaStoreAsync(
+                temporaryPath,
+                approvedPlan.ProposedOutputFileName,
+                cancellationToken)
+            : await PublishToAppStorageAsync(
+                temporaryPath,
+                approvedPlan.ProposedOutputFileName,
+                cancellationToken);
     }
 
     public Task DiscardTemporaryAsync(
@@ -68,6 +77,180 @@ public sealed class AndroidAppOutputStorage : IOutputStorage
         cancellationToken.ThrowIfCancellationRequested();
         File.Delete(GetTemporaryPath(temporaryOutput));
         return Task.CompletedTask;
+    }
+
+    public Task DiscardFinalizedAsync(
+        MediaAsset output,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var uri = global::Android.Net.Uri.Parse(output.Id);
+        if (uri?.Scheme?.Equals("content", StringComparison.OrdinalIgnoreCase) is true)
+        {
+            _context.ContentResolver?.Delete(uri, null, null);
+        }
+        else if (uri?.Scheme?.Equals("file", StringComparison.OrdinalIgnoreCase) is true &&
+                 !string.IsNullOrWhiteSpace(uri.Path))
+        {
+            var fullPath = Path.GetFullPath(uri.Path);
+            var root = Path.GetFullPath(_legacyFinalRoot) + Path.DirectorySeparatorChar;
+            if (fullPath.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+            {
+                File.Delete(fullPath);
+            }
+        }
+
+        return Task.CompletedTask;
+    }
+
+    [SupportedOSPlatform("android29.0")]
+    private async Task<MediaAsset> PublishToMediaStoreAsync(
+        string temporaryPath,
+        string proposedName,
+        CancellationToken cancellationToken)
+    {
+        var resolver = _context.ContentResolver ??
+            throw new IOException("Android media storage is unavailable.");
+        var collection = MediaStore.Audio.Media.GetContentUri(
+            MediaStore.VolumeExternalPrimary) ??
+            throw new IOException("Android audio storage is unavailable.");
+        global::Android.Net.Uri? outputUri = null;
+
+        try
+        {
+            var displayName = FindAvailableDisplayName(resolver, collection, proposedName);
+            var values = new ContentValues();
+            values.Put(MediaStore.IMediaColumns.DisplayName, displayName);
+            values.Put(MediaStore.IMediaColumns.MimeType, OutputMimeType);
+            values.Put(MediaStore.IMediaColumns.RelativePath, RelativeOutputPath);
+            values.Put(MediaStore.IMediaColumns.IsPending, 1);
+
+            outputUri = resolver.Insert(collection, values) ??
+                throw new IOException("Android could not reserve the output file.");
+
+            await using (var source = new FileStream(
+                             temporaryPath,
+                             FileMode.Open,
+                             FileAccess.Read,
+                             FileShare.Read,
+                             81920,
+                             FileOptions.Asynchronous | FileOptions.SequentialScan))
+            await using (var destination = resolver.OpenOutputStream(outputUri, "w") ??
+                throw new IOException("Android could not open the reserved output file."))
+            {
+                await source.CopyToAsync(destination, cancellationToken);
+                await destination.FlushAsync(cancellationToken);
+            }
+
+            var size = ValidatePublishedM4A(resolver, outputUri);
+            var publishValues = new ContentValues();
+            publishValues.Put(MediaStore.IMediaColumns.IsPending, 0);
+            if (resolver.Update(outputUri, publishValues, null, null) != 1)
+            {
+                throw new IOException("Android could not publish the completed output.");
+            }
+
+            File.Delete(temporaryPath);
+            return new MediaAsset(outputUri.ToString()!, displayName, OutputMimeType, size);
+        }
+        catch
+        {
+            if (outputUri is not null)
+            {
+                try
+                {
+                    resolver.Delete(outputUri, null, null);
+                }
+                catch
+                {
+                    // A failed pending item is removed on a best-effort basis.
+                }
+            }
+
+            throw;
+        }
+    }
+
+    private Task<MediaAsset> PublishToAppStorageAsync(
+        string temporaryPath,
+        string proposedName,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        Directory.CreateDirectory(_legacyFinalRoot);
+        var finalPath = GetCollisionSafePath(_legacyFinalRoot, proposedName);
+        File.Move(temporaryPath, finalPath, false);
+        ValidateM4A(finalPath);
+        var info = new FileInfo(finalPath);
+        return Task.FromResult(
+            new MediaAsset(
+                new Uri(finalPath).AbsoluteUri,
+                info.Name,
+                OutputMimeType,
+                info.Length));
+    }
+
+    [SupportedOSPlatform("android29.0")]
+    private static string FindAvailableDisplayName(
+        ContentResolver resolver,
+        global::Android.Net.Uri collection,
+        string proposedName)
+    {
+        var baseName = Path.GetFileNameWithoutExtension(proposedName);
+        for (var suffix = 1; suffix < 10_000; suffix++)
+        {
+            var candidate = suffix == 1
+                ? $"{baseName}.m4a"
+                : $"{baseName}-{suffix}.m4a";
+            using var cursor = resolver.Query(
+                collection,
+                ["_id"],
+                $"{MediaStore.IMediaColumns.DisplayName}=? AND {MediaStore.IMediaColumns.RelativePath}=?",
+                [candidate, RelativeOutputPath],
+                null);
+            if (cursor is null || !cursor.MoveToFirst())
+            {
+                return candidate;
+            }
+        }
+
+        throw new IOException("A collision-free output filename could not be created.");
+    }
+
+    private static long ValidatePublishedM4A(
+        ContentResolver resolver,
+        global::Android.Net.Uri uri)
+    {
+        var size = GetSize(resolver, uri);
+        if (size <= 0)
+        {
+            throw new InvalidDataException("The published output is empty.");
+        }
+
+        using var descriptor = resolver.OpenAssetFileDescriptor(uri, "r") ??
+            throw new InvalidDataException("The published output cannot be reopened.");
+        var fileDescriptor = descriptor.FileDescriptor ??
+            throw new InvalidDataException("The published output descriptor is unavailable.");
+        using var extractor = new global::Android.Media.MediaExtractor();
+        extractor.SetDataSource(
+            fileDescriptor,
+            descriptor.StartOffset,
+            descriptor.Length > 0 ? descriptor.Length : size);
+        EnsureAacTrack(extractor);
+        return size;
+    }
+
+    private static long GetSize(ContentResolver resolver, global::Android.Net.Uri uri)
+    {
+        using var cursor = resolver.Query(
+            uri,
+            [MediaStore.IMediaColumns.Size],
+            null,
+            null,
+            null);
+        return cursor is not null && cursor.MoveToFirst() && !cursor.IsNull(0)
+            ? cursor.GetLong(0)
+            : throw new InvalidDataException("The published output size is unavailable.");
     }
 
     private string GetTemporaryPath(TemporaryOutput temporaryOutput)
@@ -81,14 +264,13 @@ public sealed class AndroidAppOutputStorage : IOutputStorage
         return Path.Combine(_temporaryRoot, temporaryOutput.Id + ".m4a.tmp");
     }
 
-    private string GetCollisionSafePath(string proposedName)
+    private static string GetCollisionSafePath(string root, string proposedName)
     {
         var baseName = Path.GetFileNameWithoutExtension(proposedName);
-        var extension = ".m4a";
-        var candidate = Path.Combine(_finalRoot, baseName + extension);
+        var candidate = Path.Combine(root, baseName + ".m4a");
         for (var suffix = 2; File.Exists(candidate); suffix++)
         {
-            candidate = Path.Combine(_finalRoot, $"{baseName}-{suffix}{extension}");
+            candidate = Path.Combine(root, $"{baseName}-{suffix}.m4a");
         }
 
         return candidate;
@@ -119,22 +301,22 @@ public sealed class AndroidAppOutputStorage : IOutputStorage
 
         using var extractor = new global::Android.Media.MediaExtractor();
         extractor.SetDataSource(path);
-        var hasAacAudio = false;
+        EnsureAacTrack(extractor);
+    }
+
+    private static void EnsureAacTrack(global::Android.Media.MediaExtractor extractor)
+    {
         for (var index = 0; index < extractor.TrackCount; index++)
         {
             var format = extractor.GetTrackFormat(index);
-            var mime = format.GetString(global::Android.Media.MediaFormat.KeyMime);
-            if (mime?.Equals("audio/mp4a-latm", StringComparison.OrdinalIgnoreCase) is true)
+            if (format.GetString(global::Android.Media.MediaFormat.KeyMime)
+                ?.Equals("audio/mp4a-latm", StringComparison.OrdinalIgnoreCase) is true)
             {
-                hasAacAudio = true;
-                break;
+                return;
             }
         }
 
-        if (!hasAacAudio)
-        {
-            throw new InvalidDataException("The temporary output does not contain readable AAC audio.");
-        }
+        throw new InvalidDataException("The output does not contain readable AAC audio.");
     }
 }
 #endif

@@ -9,6 +9,8 @@ public sealed class QueuedExportViewModel : BaseViewModel
     private readonly Func<QueuedExportViewModel, Task> _moveUp;
     private readonly Func<QueuedExportViewModel, Task> _remove;
     private readonly Func<QueuedExportViewModel, Task> _run;
+    private readonly Func<QueuedExportViewModel, Task> _openOutput;
+    private readonly Func<QueuedExportViewModel, Task> _shareOutput;
     private readonly Action<QueuedExportViewModel> _cancel;
     private bool _canMoveDown;
     private bool _canMoveUp;
@@ -27,7 +29,9 @@ public sealed class QueuedExportViewModel : BaseViewModel
         Func<QueuedExportViewModel, Task> moveDown,
         Func<QueuedExportViewModel, Task> remove,
         Func<QueuedExportViewModel, Task> run,
-        Action<QueuedExportViewModel> cancel)
+        Action<QueuedExportViewModel> cancel,
+        Func<QueuedExportViewModel, Task> openOutput,
+        Func<QueuedExportViewModel, Task> shareOutput)
     {
         Job = job;
         CanRun = canRun;
@@ -38,12 +42,20 @@ public sealed class QueuedExportViewModel : BaseViewModel
         _remove = remove;
         _run = run;
         _cancel = cancel;
+        _openOutput = openOutput;
+        _shareOutput = shareOutput;
         EditCommand = new Command(async () => await _edit(this), () => !IsRunning);
         MoveUpCommand = new Command(async () => await _moveUp(this), () => CanMoveUp && !IsRunning);
         MoveDownCommand = new Command(async () => await _moveDown(this), () => CanMoveDown && !IsRunning);
         RemoveCommand = new Command(async () => await _remove(this), () => !IsRunning);
         RunCommand = new Command(async () => await _run(this), () => CanRun && !IsRunning);
         CancelCommand = new Command(() => _cancel(this), () => IsRunning);
+        OpenOutputCommand = new Command(
+            async () => await _openOutput(this),
+            () => HasCompletedOutput && !IsRunning);
+        ShareOutputCommand = new Command(
+            async () => await _shareOutput(this),
+            () => HasCompletedOutput && !IsRunning);
     }
 
     public ConversionJob Job { get; }
@@ -59,6 +71,8 @@ public sealed class QueuedExportViewModel : BaseViewModel
     public Command RunCommand { get; }
 
     public Command CancelCommand { get; }
+    public Command OpenOutputCommand { get; }
+    public Command ShareOutputCommand { get; }
 
     public string Id => Job.Id;
 
@@ -80,6 +94,16 @@ public sealed class QueuedExportViewModel : BaseViewModel
             : $"Plan compatible with {FormatMediaType(Job.Plan.Source)} media · conversion is not available yet.";
 
     public bool ShowRunAction => CanRun;
+    public bool IsCompleted => Job.State == ConversionJobState.Completed;
+    public bool IsQueued => Job.State == ConversionJobState.Queued;
+    public bool IsTerminal =>
+        Job.State is ConversionJobState.Completed or
+            ConversionJobState.Failed or ConversionJobState.Cancelled;
+    public bool HasCompletedOutput => IsCompleted && Job.Output is not null;
+    public bool IsOutputUnavailable => IsCompleted && Job.Output is null;
+    public bool ShowRemoveOnly =>
+        Job.State is ConversionJobState.Failed or ConversionJobState.Cancelled;
+    public bool ShowStatusMessage => HasSourceIssue || IsTerminal;
 
     public string StatusMessage =>
         string.IsNullOrWhiteSpace(RuntimeMessage)
@@ -218,6 +242,8 @@ public sealed class QueuedExportViewModel : BaseViewModel
         }
     }
 
+    public void SetActionMessage(string message) => RuntimeMessage = message;
+
     private void RefreshCommands()
     {
         EditCommand.ChangeCanExecute();
@@ -226,6 +252,8 @@ public sealed class QueuedExportViewModel : BaseViewModel
         RemoveCommand.ChangeCanExecute();
         RunCommand.ChangeCanExecute();
         CancelCommand.ChangeCanExecute();
+        OpenOutputCommand.ChangeCanExecute();
+        ShareOutputCommand.ChangeCanExecute();
     }
 
     private static string FormatOutput(OutputFormat format) => format switch

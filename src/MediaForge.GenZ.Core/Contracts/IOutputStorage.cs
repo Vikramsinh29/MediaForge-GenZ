@@ -20,4 +20,8 @@ public interface IOutputStorage
     Task DiscardTemporaryAsync(
         TemporaryOutput temporaryOutput,
         CancellationToken cancellationToken = default);
+
+    Task DiscardFinalizedAsync(
+        MediaAsset output,
+        CancellationToken cancellationToken = default);
 }

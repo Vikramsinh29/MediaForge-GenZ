@@ -60,25 +60,44 @@ public sealed class PersistentConversionJobQueue(
                     if (job is null ||
                         string.IsNullOrWhiteSpace(job.Id) ||
                         !restoredIds.Add(job.Id) ||
-                        job.State != ConversionJobState.Queued ||
                         !IsSafePlan(job.Plan))
                     {
                         skipped++;
                         continue;
                     }
 
-                    var sourceState = await sourceValidator.GetStateAsync(
-                        job.Plan.Source,
-                        cancellationToken);
-                    restored.Add(job with
+                    if (job.State == ConversionJobState.Queued)
                     {
-                        State = ConversionJobState.Queued,
-                        Progress = 0,
-                        ErrorMessage = null,
-                        SourceReferenceState = sourceState,
-                        StatusMessage = GetSourceMessage(sourceState),
-                        UpdatedAt = DateTimeOffset.UtcNow
-                    });
+                        var sourceState = await sourceValidator.GetStateAsync(
+                            job.Plan.Source,
+                            cancellationToken);
+                        restored.Add(job with
+                        {
+                            State = ConversionJobState.Queued,
+                            Progress = 0,
+                            ErrorMessage = null,
+                            Output = null,
+                            SourceReferenceState = sourceState,
+                            StatusMessage = GetSourceMessage(sourceState),
+                            UpdatedAt = DateTimeOffset.UtcNow
+                        });
+                    }
+                    else if (job.State == ConversionJobState.Completed &&
+                             IsValidCompletedOutput(job.Output))
+                    {
+                        restored.Add(job with
+                        {
+                            State = ConversionJobState.Completed,
+                            Progress = 1,
+                            ErrorMessage = null,
+                            StatusMessage = $"Completed: {job.Output!.DisplayName}",
+                            UpdatedAt = DateTimeOffset.UtcNow
+                        });
+                    }
+                    else
+                    {
+                        skipped++;
+                    }
                 }
             }
 
@@ -241,6 +260,7 @@ public sealed class PersistentConversionJobQueue(
         double? progress = null,
         string? statusMessage = null,
         string? errorMessage = null,
+        MediaAsset? completedOutput = null,
         CancellationToken cancellationToken = default) =>
         MutateAsync(
             jobs =>
@@ -266,6 +286,15 @@ public sealed class PersistentConversionJobQueue(
 
                 if (nextState == ConversionJobState.Completed)
                 {
+                    if (completedOutput is null ||
+                        string.IsNullOrWhiteSpace(completedOutput.Id) ||
+                        string.IsNullOrWhiteSpace(completedOutput.DisplayName) ||
+                        completedOutput.SizeInBytes is null or <= 0)
+                    {
+                        return ValidationResult.Failure(
+                            "A completed job requires a readable finalized output.");
+                    }
+
                     nextProgress = 1;
                 }
 
@@ -281,6 +310,9 @@ public sealed class PersistentConversionJobQueue(
                     Progress = nextProgress,
                     StatusMessage = statusMessage,
                     ErrorMessage = errorMessage,
+                    Output = nextState == ConversionJobState.Completed
+                        ? completedOutput
+                        : current.Output,
                     UpdatedAt = DateTimeOffset.UtcNow
                 };
                 return ValidationResult.Success;
@@ -385,6 +417,12 @@ public sealed class PersistentConversionJobQueue(
             plan.ProposedOutputFileName,
             plan.Source.DisplayName,
             StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsValidCompletedOutput(MediaAsset? output) =>
+        output is not null &&
+        !string.IsNullOrWhiteSpace(output.Id) &&
+        !string.IsNullOrWhiteSpace(output.DisplayName) &&
+        output.SizeInBytes is > 0;
 
     private static string GetSourceMessage(MediaSourceReferenceState state) =>
         state switch

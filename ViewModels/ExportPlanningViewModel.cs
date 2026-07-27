@@ -9,6 +9,8 @@ public sealed class ExportPlanningViewModel : BaseViewModel
     private readonly IExportPlanner _exportPlanner;
     private readonly IConversionJobQueue _conversionJobQueue;
     private readonly IConversionJobRunner _conversionJobRunner;
+    private readonly IOutputOpener _outputOpener;
+    private readonly IShareService _shareService;
     private readonly Dictionary<string, CancellationTokenSource> _runningJobs = new();
     private readonly Dictionary<string, ExportDraft> _drafts = new(StringComparer.Ordinal);
     private readonly List<MediaAsset> _batchSources = [];
@@ -43,11 +45,15 @@ public sealed class ExportPlanningViewModel : BaseViewModel
     public ExportPlanningViewModel(
         IExportPlanner exportPlanner,
         IConversionJobQueue conversionJobQueue,
-        IConversionJobRunner conversionJobRunner)
+        IConversionJobRunner conversionJobRunner,
+        IOutputOpener outputOpener,
+        IShareService shareService)
     {
         _exportPlanner = exportPlanner;
         _conversionJobQueue = conversionJobQueue;
         _conversionJobRunner = conversionJobRunner;
+        _outputOpener = outputOpener;
+        _shareService = shareService;
         OpenCommand = new Command(Open);
         OpenQueueCommand = new Command(OpenQueue);
         CloseCommand = new Command(Close);
@@ -575,6 +581,56 @@ public sealed class ExportPlanningViewModel : BaseViewModel
         }
     }
 
+    private async Task OpenOutputAsync(QueuedExportViewModel item)
+    {
+        if (item.Job.Output is null)
+        {
+            item.SetActionMessage("The completed output is unavailable.");
+            return;
+        }
+
+        try
+        {
+            var result = await _outputOpener.OpenAsync(item.Job.Output);
+            item.SetActionMessage(result.IsValid
+                ? "Opening the completed output."
+                : string.Join(" ", result.Errors));
+        }
+        catch (OperationCanceledException)
+        {
+            item.SetActionMessage("Opening the output was cancelled.");
+        }
+        catch
+        {
+            item.SetActionMessage("The completed output could not be opened.");
+        }
+    }
+
+    private async Task ShareOutputAsync(QueuedExportViewModel item)
+    {
+        if (item.Job.Output is null)
+        {
+            item.SetActionMessage("The completed output is unavailable.");
+            return;
+        }
+
+        try
+        {
+            var result = await _shareService.ShareAsync(item.Job.Output);
+            item.SetActionMessage(result.IsValid
+                ? "Android's share sheet was opened."
+                : string.Join(" ", result.Errors));
+        }
+        catch (OperationCanceledException)
+        {
+            item.SetActionMessage("Sharing was cancelled.");
+        }
+        catch
+        {
+            item.SetActionMessage("The completed output could not be shared.");
+        }
+    }
+
     private async Task ClearQueueAsync()
     {
         if (IsBusy)
@@ -642,7 +698,9 @@ public sealed class ExportPlanningViewModel : BaseViewModel
                     MoveDownAsync,
                     RemoveAsync,
                     RunAsync,
-                    Cancel));
+                    Cancel,
+                    OpenOutputAsync,
+                    ShareOutputAsync));
         }
 
         for (var index = 0; index < QueuedJobs.Count; index++)

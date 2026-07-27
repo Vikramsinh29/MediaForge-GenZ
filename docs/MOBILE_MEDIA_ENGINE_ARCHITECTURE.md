@@ -138,6 +138,27 @@ capabilities and lifecycle.
 - Cleanup failures are logged without changing a successful finalisation into a
   source overwrite or destructive retry.
 
+## Android completed-output boundary
+
+The Android output adapter owns all MediaStore and content-URI operations.
+Core, queue, and view-model code see only `MediaAsset` metadata whose identifier
+is an opaque platform reference. On Android 10 and later finalisation follows:
+
+1. validate the app-private temporary M4A;
+2. reserve a collision-free pending `MediaStore.Audio` item;
+3. copy into that pending item;
+4. reopen and validate file size plus the readable AAC track;
+5. publish by clearing the pending flag;
+6. attach the opaque finalized output to the completed queue job.
+
+Any failure before step 5 deletes the pending item and retains no completed
+output reference. Failure to persist step 6 rolls back the newly published
+output before the job enters `Failed`. Open and share behavior is provided through the neutral
+`IOutputOpener` and `IShareService` boundaries. Clearing a completed queue entry
+removes only the lightweight job record and never deletes the user's published
+file. Completed records may be restored only when they contain a structurally
+valid opaque output reference and positive lightweight size metadata.
+
 ## Progress and cancellation rules
 
 - Queued and Preparing may report 0%.

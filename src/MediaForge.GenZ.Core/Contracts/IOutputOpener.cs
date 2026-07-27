@@ -2,9 +2,9 @@ using MediaForge.GenZ.Core.Models;
 
 namespace MediaForge.GenZ.Core.Contracts;
 
-public interface IShareService
+public interface IOutputOpener
 {
-    Task<ValidationResult> ShareAsync(
-        MediaAsset asset,
+    Task<ValidationResult> OpenAsync(
+        MediaAsset output,
         CancellationToken cancellationToken = default);
 }

@@ -604,7 +604,7 @@
                                                         TextColor="{StaticResource Primary}" />
                                                 </Grid>
                                                 <Label
-                                                    IsVisible="{Binding HasSourceIssue}"
+                                                    IsVisible="{Binding ShowStatusMessage}"
                                                     FontSize="11"
                                                     Text="{Binding StatusMessage}"
                                                     TextColor="{StaticResource InkMuted}" />
@@ -645,12 +645,38 @@
                                                         Style="{StaticResource TextButton}"
                                                         Text="Cancel" />
                                                 </Grid>
-                                                <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="4">
+                                                <Grid
+                                                    IsVisible="{Binding IsQueued}"
+                                                    ColumnDefinitions="Auto,Auto,*,Auto"
+                                                    ColumnSpacing="4">
                                                     <Button Command="{Binding MoveUpCommand}" Style="{StaticResource TextButton}" Text="Up" />
                                                     <Button Grid.Column="1" Command="{Binding MoveDownCommand}" Style="{StaticResource TextButton}" Text="Down" />
                                                     <Button Grid.Column="2" Command="{Binding EditCommand}" Style="{StaticResource TextButton}" Text="Edit" />
                                                     <Button Grid.Column="3" Command="{Binding RemoveCommand}" Style="{StaticResource TextButton}" Text="Remove" />
                                                 </Grid>
+                                                <Grid
+                                                    IsVisible="{Binding HasCompletedOutput}"
+                                                    ColumnDefinitions="*,*,Auto"
+                                                    ColumnSpacing="6">
+                                                    <Button Command="{Binding OpenOutputCommand}" Style="{StaticResource TextButton}" Text="Open" />
+                                                    <Button Grid.Column="1" Command="{Binding ShareOutputCommand}" Style="{StaticResource TextButton}" Text="Share" />
+                                                    <Button Grid.Column="2" Command="{Binding RemoveCommand}" Style="{StaticResource TextButton}" Text="Clear entry" />
+                                                </Grid>
+                                                <VerticalStackLayout
+                                                    IsVisible="{Binding IsOutputUnavailable}"
+                                                    Spacing="4">
+                                                    <Label
+                                                        FontSize="10"
+                                                        Text="The completed output is no longer available."
+                                                        TextColor="{StaticResource InkMuted}" />
+                                                    <Button Command="{Binding RemoveCommand}" Style="{StaticResource TextButton}" Text="Clear entry" />
+                                                </VerticalStackLayout>
+                                                <Button
+                                                    IsVisible="{Binding ShowRemoveOnly}"
+                                                    Command="{Binding RemoveCommand}"
+                                                    HorizontalOptions="End"
+                                                    Style="{StaticResource TextButton}"
+                                                    Text="Clear entry" />
                                             </VerticalStackLayout>
                                         </Border>
                                     </DataTemplate>

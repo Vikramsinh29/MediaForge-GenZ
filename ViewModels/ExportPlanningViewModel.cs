@@ -475,7 +475,7 @@ public sealed class ExportPlanningViewModel : BaseViewModel
 
                 var added = _conversionJobQueue.GetSnapshot().Count - previousCount;
                 QueueMessage = added == 0
-                    ? "Those files already have identical queued plans."
+                    ? "The existing plan was refreshed with the latest secure source access."
                     : $"{added} export plan{(added == 1 ? string.Empty : "s")} added. No media was copied.";
             }
             else

@@ -35,8 +35,7 @@ public sealed class AndroidMediaImportService : IMediaImportService, IMediaSourc
 
             var (name, size) = ReadProperties(resolver, uri);
             if (string.IsNullOrWhiteSpace(name)) continue;
-            var id = Convert.ToHexString(
-                SHA256.HashData(Encoding.UTF8.GetBytes(uri.ToString() ?? string.Empty)));
+            var id = GetAssetId(uri);
             _uris[id] = uri;
             assets.Add(new MediaAsset(id, name, resolver.GetType(uri), size));
         }
@@ -46,7 +45,8 @@ public sealed class AndroidMediaImportService : IMediaImportService, IMediaSourc
     public Task<Stream> OpenReadAsync(MediaAsset asset, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (!_uris.TryGetValue(asset.Id, out var uri))
+        var uri = ResolveUri(asset.Id);
+        if (uri is null)
             throw new FileNotFoundException("The selected media is no longer accessible.", asset.DisplayName);
         var resolver = global::Android.App.Application.Context.ContentResolver
             ?? throw new InvalidOperationException("Android content resolver is unavailable.");
@@ -58,10 +58,59 @@ public sealed class AndroidMediaImportService : IMediaImportService, IMediaSourc
     public Task<MediaSourceReferenceState> GetStateAsync(MediaAsset source, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult(_uris.ContainsKey(source.Id)
-            ? MediaSourceReferenceState.Available
-            : MediaSourceReferenceState.Unavailable);
+        var uri = ResolveUri(source.Id);
+        if (uri is null)
+        {
+            return Task.FromResult(MediaSourceReferenceState.Unavailable);
+        }
+
+        try
+        {
+            var resolver = global::Android.App.Application.Context.ContentResolver;
+            using var descriptor = resolver?.OpenAssetFileDescriptor(uri, "r");
+            return Task.FromResult(descriptor is not null
+                ? MediaSourceReferenceState.Available
+                : MediaSourceReferenceState.Unavailable);
+        }
+        catch
+        {
+            _uris.TryRemove(source.Id, out _);
+            return Task.FromResult(MediaSourceReferenceState.Unavailable);
+        }
     }
+
+    private global::Android.Net.Uri? ResolveUri(string assetId)
+    {
+        if (_uris.TryGetValue(assetId, out var cached))
+        {
+            return cached;
+        }
+
+        var permissions = global::Android.App.Application.Context
+            .ContentResolver?.PersistedUriPermissions;
+        if (permissions is null)
+        {
+            return null;
+        }
+
+        foreach (var permission in permissions)
+        {
+            if (!permission.IsReadPermission || permission.Uri is not { } uri ||
+                !GetAssetId(uri).Equals(assetId, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            _uris[assetId] = uri;
+            return uri;
+        }
+
+        return null;
+    }
+
+    private static string GetAssetId(global::Android.Net.Uri uri) =>
+        Convert.ToHexString(
+            SHA256.HashData(Encoding.UTF8.GetBytes(uri.ToString() ?? string.Empty)));
 
     private static (string? Name, long? Size) ReadProperties(
         global::Android.Content.ContentResolver resolver,

@@ -147,7 +147,20 @@ public sealed class PersistentConversionJobQueue(
                         StringComparison.OrdinalIgnoreCase));
             if (existing is not null)
             {
-                return existing;
+                var refreshedSourceState = await sourceValidator.GetStateAsync(
+                    plan.Source,
+                    cancellationToken);
+                var refreshed = existing with
+                {
+                    Plan = plan,
+                    SourceReferenceState = refreshedSourceState,
+                    StatusMessage = GetSourceMessage(refreshedSourceState),
+                    UpdatedAt = DateTimeOffset.UtcNow
+                };
+                var refreshedJobs = GetSnapshot().ToList();
+                refreshedJobs[refreshedJobs.FindIndex(job => job.Id == existing.Id)] = refreshed;
+                await SaveAsync(refreshedJobs, cancellationToken);
+                return refreshed;
             }
 
             var now = DateTimeOffset.UtcNow;

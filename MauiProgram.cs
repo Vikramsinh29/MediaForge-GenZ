@@ -1,3 +1,5 @@
+using MediaForge.GenZ.Core.Contracts;
+using MediaForge.Universal.Services;
 using MediaForge.Universal.ViewModels;
 using MediaForge.Universal.Views;
 using Microsoft.Extensions.Logging;
@@ -17,9 +19,10 @@ public static class MauiProgram
                 fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
             });
 
+        builder.Services.AddSingleton<IMediaImportService, SystemMediaImportService>();
+        builder.Services.AddSingleton<HomeViewModel>();
+        builder.Services.AddSingleton<HomePage>();
         builder.Services.AddSingleton<AppShell>();
-        builder.Services.AddTransient<HomePage>();
-        builder.Services.AddTransient<HomeViewModel>();
 
 #if DEBUG
         builder.Logging.AddDebug();

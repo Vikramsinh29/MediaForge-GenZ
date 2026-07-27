@@ -6,19 +6,15 @@
     xmlns:viewModels="clr-namespace:MediaForge.Universal.ViewModels"
     x:DataType="viewModels:HomeViewModel"
     BackgroundColor="{StaticResource Canvas}">
-    <ScrollView>
-        <Grid Padding="24,32,24,28" RowDefinitions="Auto,*,Auto" RowSpacing="32">
+    <Grid Padding="24,28,24,24" RowDefinitions="Auto,*,Auto" RowSpacing="20">
+        <Grid ColumnDefinitions="*,Auto">
             <HorizontalStackLayout Spacing="10">
                 <Border
                     Padding="10,6"
                     BackgroundColor="{StaticResource PrimarySoft}"
                     StrokeThickness="0"
                     StrokeShape="RoundRectangle 12">
-                    <Label
-                        FontAttributes="Bold"
-                        FontSize="13"
-                        Text="MF"
-                        TextColor="{StaticResource Primary}" />
+                    <Label FontAttributes="Bold" FontSize="13" Text="MF" TextColor="{StaticResource Primary}" />
                 </Border>
                 <Label
                     VerticalOptions="Center"
@@ -27,8 +23,15 @@
                     Text="{Binding ProductName}"
                     TextColor="{StaticResource Ink}" />
             </HorizontalStackLayout>
+            <ActivityIndicator
+                Grid.Column="1"
+                IsRunning="{Binding IsBusy}"
+                IsVisible="{Binding IsBusy}"
+                Color="{StaticResource Primary}" />
+        </Grid>
 
-            <VerticalStackLayout Grid.Row="1" VerticalOptions="Center" Spacing="24">
+        <ScrollView Grid.Row="1" IsVisible="{Binding ShowWelcome}">
+            <VerticalStackLayout VerticalOptions="Center" Spacing="22">
                 <Border
                     Padding="12,7"
                     HorizontalOptions="Start"
@@ -41,59 +44,137 @@
                         Text="OFFLINE BY DEFAULT"
                         TextColor="{StaticResource MintDark}" />
                 </Border>
-
                 <Label
                     FontAttributes="Bold"
-                    FontSize="44"
+                    FontSize="42"
                     LineHeight="1.05"
                     Text="{Binding Headline}"
                     TextColor="{StaticResource Ink}"
                     SemanticProperties.HeadingLevel="Level1" />
-
                 <Label
-                    FontSize="17"
-                    LineHeight="1.5"
+                    FontSize="16"
+                    LineHeight="1.45"
                     Text="{Binding Description}"
                     TextColor="{StaticResource InkMuted}" />
-
                 <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
                     <Border Style="{StaticResource FeatureCard}">
-                        <VerticalStackLayout Spacing="8">
-                            <Label FontSize="22" Text="↯" TextColor="{StaticResource Primary}" />
+                        <VerticalStackLayout Spacing="7">
                             <Label FontAttributes="Bold" Text="Fast &amp; simple" TextColor="{StaticResource Ink}" />
-                            <Label FontSize="12" Text="Creator-friendly presets" TextColor="{StaticResource InkMuted}" />
+                            <Label FontSize="12" Text="Pick multiple media files" TextColor="{StaticResource InkMuted}" />
                         </VerticalStackLayout>
                     </Border>
                     <Border Grid.Column="1" Style="{StaticResource FeatureCard}">
-                        <VerticalStackLayout Spacing="8">
-                            <Label FontSize="22" Text="✓" TextColor="{StaticResource MintDark}" />
+                        <VerticalStackLayout Spacing="7">
                             <Label FontAttributes="Bold" Text="Private" TextColor="{StaticResource Ink}" />
                             <Label FontSize="12" Text="Files stay on device" TextColor="{StaticResource InkMuted}" />
                         </VerticalStackLayout>
                     </Border>
                 </Grid>
+                <Label
+                    IsVisible="{Binding IsStatusVisible}"
+                    FontSize="13"
+                    Text="{Binding StatusMessage}"
+                    TextColor="{StaticResource InkMuted}" />
             </VerticalStackLayout>
+        </ScrollView>
 
-            <Border
+        <Grid
+            Grid.Row="1"
+            IsVisible="{Binding HasMedia}"
+            RowDefinitions="Auto,Auto,*"
+            RowSpacing="14">
+            <Grid ColumnDefinitions="*,Auto">
+                <VerticalStackLayout Spacing="2">
+                    <Label FontAttributes="Bold" FontSize="28" Text="Media library" TextColor="{StaticResource Ink}" />
+                    <Label FontSize="13" Text="{Binding ImportedCountLabel}" TextColor="{StaticResource InkMuted}" />
+                </VerticalStackLayout>
+                <Button
+                    Grid.Column="1"
+                    Command="{Binding ClearAllCommand}"
+                    Style="{StaticResource TextButton}"
+                    Text="Clear all" />
+            </Grid>
+
+            <Grid Grid.Row="1" ColumnDefinitions="*,Auto">
+                <Label
+                    VerticalOptions="Center"
+                    FontSize="12"
+                    Text="Select cards to manage your list"
+                    TextColor="{StaticResource InkMuted}" />
+                <Button
+                    Grid.Column="1"
+                    Command="{Binding ClearSelectedCommand}"
+                    IsVisible="{Binding HasSelection}"
+                    Style="{StaticResource TextButton}"
+                    Text="Clear selected" />
+            </Grid>
+
+            <CollectionView
                 Grid.Row="2"
-                Padding="18,14"
-                BackgroundColor="{StaticResource Ink}"
-                StrokeThickness="0"
-                StrokeShape="RoundRectangle 18">
-                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
-                    <Border
-                        HeightRequest="10"
-                        WidthRequest="10"
-                        VerticalOptions="Center"
-                        BackgroundColor="{StaticResource Mint}"
-                        StrokeThickness="0"
-                        StrokeShape="RoundRectangle 5" />
-                    <VerticalStackLayout Grid.Column="1" Spacing="2">
-                        <Label FontAttributes="Bold" FontSize="14" Text="{Binding FoundationStatus}" TextColor="White" />
-                        <Label FontSize="12" Text="Foundation ready for future conversion workflows" TextColor="#C7C4D4" />
-                    </VerticalStackLayout>
-                </Grid>
-            </Border>
+                ItemsSource="{Binding MediaItems}"
+                SelectionMode="None"
+                VerticalScrollBarVisibility="Never">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="viewModels:MediaLibraryItemViewModel">
+                        <Border Margin="0,0,0,10" Style="{StaticResource MediaCard}">
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                                <Border
+                                    HeightRequest="42"
+                                    WidthRequest="42"
+                                    VerticalOptions="Center"
+                                    BackgroundColor="{StaticResource PrimarySoft}"
+                                    StrokeThickness="0"
+                                    StrokeShape="RoundRectangle 13">
+                                    <Label
+                                        HorizontalOptions="Center"
+                                        VerticalOptions="Center"
+                                        FontAttributes="Bold"
+                                        FontSize="10"
+                                        Text="{Binding TypeBadge}"
+                                        TextColor="{StaticResource Primary}" />
+                                </Border>
+                                <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="3">
+                                    <Label
+                                        FontAttributes="Bold"
+                                        FontSize="14"
+                                        LineBreakMode="TailTruncation"
+                                        MaxLines="1"
+                                        Text="{Binding FileName}"
+                                        TextColor="{StaticResource Ink}" />
+                                    <HorizontalStackLayout Spacing="7">
+                                        <Label FontSize="12" Text="{Binding MediaType}" TextColor="{StaticResource InkMuted}" />
+                                        <Label FontSize="12" Text="•" TextColor="{StaticResource InkMuted}" />
+                                        <Label FontSize="12" Text="{Binding FileSize}" TextColor="{StaticResource InkMuted}" />
+                                    </HorizontalStackLayout>
+                                </VerticalStackLayout>
+                                <CheckBox
+                                    Grid.Column="2"
+                                    VerticalOptions="Center"
+                                    IsChecked="{Binding IsSelected}"
+                                    Color="{StaticResource Primary}" />
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
         </Grid>
-    </ScrollView>
+
+        <VerticalStackLayout Grid.Row="2" Spacing="10">
+            <Label
+                IsVisible="{Binding HasMedia}"
+                FontSize="12"
+                HorizontalTextAlignment="Center"
+                Text="{Binding StatusMessage}"
+                TextColor="{StaticResource InkMuted}" />
+            <Button
+                Command="{Binding ImportMediaCommand}"
+                Style="{StaticResource PrimaryButton}"
+                Text="Choose media" />
+            <Label
+                HorizontalTextAlignment="Center"
+                FontSize="11"
+                Text="Uses the secure system picker • No broad storage access"
+                TextColor="{StaticResource InkMuted}" />
+        </VerticalStackLayout>
+    </Grid>
 </ContentPage>

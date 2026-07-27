@@ -10,16 +10,20 @@ public sealed class MediaLibraryItemViewModel : BaseViewModel
     public MediaLibraryItemViewModel(
         MediaAsset asset,
         Action selectionChanged,
-        Func<MediaLibraryItemViewModel, Task> openDetails)
+        Func<MediaLibraryItemViewModel, Task> openDetails,
+        Func<MediaLibraryItemViewModel, Task> openExport)
     {
         Asset = asset;
         _selectionChanged = selectionChanged;
         OpenDetailsCommand = new Command(async () => await openDetails(this));
+        ConvertCommand = new Command(async () => await openExport(this));
     }
 
     public MediaAsset Asset { get; }
 
     public Command OpenDetailsCommand { get; }
+
+    public Command ConvertCommand { get; }
 
     public string FileName => Asset.DisplayName;
 

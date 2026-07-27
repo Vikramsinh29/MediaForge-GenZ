@@ -134,7 +134,8 @@ public sealed class HomeViewModel : BaseViewModel
                         new MediaLibraryItemViewModel(
                             asset,
                             UpdateSelectionState,
-                            OpenDetailsAsync));
+                            OpenDetailsAsync,
+                            OpenExportAsync));
                     added++;
                 }
             }
@@ -164,6 +165,12 @@ public sealed class HomeViewModel : BaseViewModel
 
     private Task OpenDetailsAsync(MediaLibraryItemViewModel item) =>
         Details.LoadAsync(item);
+
+    private async Task OpenExportAsync(MediaLibraryItemViewModel item)
+    {
+        await Details.LoadAsync(item);
+        Details.Export.OpenCommand.Execute(null);
+    }
 
     private void ClearSelected()
     {

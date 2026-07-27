@@ -95,7 +95,7 @@
                 <Label
                     VerticalOptions="Center"
                     FontSize="12"
-                    Text="Tap a card for details"
+                    Text="Tap a card to preview, or choose Convert"
                     TextColor="{StaticResource InkMuted}" />
                 <Button
                     Grid.Column="1"
@@ -115,7 +115,7 @@
                             <Border.GestureRecognizers>
                                 <TapGestureRecognizer Command="{Binding OpenDetailsCommand}" />
                             </Border.GestureRecognizers>
-                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                            <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="10">
                                 <Border
                                     HeightRequest="42"
                                     WidthRequest="42"
@@ -150,6 +150,12 @@
                                     VerticalOptions="Center"
                                     IsChecked="{Binding IsSelected}"
                                     Color="{StaticResource Primary}" />
+                                <Button
+                                    Grid.Column="3"
+                                    Command="{Binding ConvertCommand}"
+                                    SemanticProperties.Description="Open conversion options for this media file"
+                                    Style="{StaticResource TextButton}"
+                                    Text="Convert →" />
                             </Grid>
                         </Border>
                     </DataTemplate>

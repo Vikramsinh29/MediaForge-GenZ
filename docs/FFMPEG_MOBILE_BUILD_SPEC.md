@@ -203,3 +203,20 @@ The evidence bundle must contain:
 
 Use `RELEASE_COMPLIANCE_CHECKLIST.md` as the distribution gate. Any missing,
 placeholder, stale, or contradictory evidence blocks binary distribution.
+
+## Sprint 8 development-only proof gate
+
+The narrow Android WAV-to-AAC/M4A proof is specified in
+[`ANDROID_TRANSCODING_POC.md`](ANDROID_TRANSCODING_POC.md). Its build recipe is
+not a release recipe and does not relax any gate in this document.
+
+Native source, work trees, libraries, packages, and APKs must stay outside the
+repository. A local build may begin only after an immutable FFmpeg commit, source
+archive SHA-256, NDK revision, CMake/toolchain versions, and external artifact
+root are recorded and pass the prerequisite check. Missing prerequisites block
+the proof; scripts must not download them automatically.
+
+The proof permits only Android `arm64-v8a`, WAV/PCM input, FFmpeg's native AAC
+encoder, and MOV/M4A muxing. GPL, nonfree, external codec, network, FFmpegKit,
+video, image, and iOS surfaces remain excluded. A successful private device test
+would still not authorize binary distribution.

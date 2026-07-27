@@ -68,6 +68,16 @@ approved by `TRANSCODING_ENGINE_DECISION.md`. It will:
 JNI/NDK/vendor types must remain under the Android platform adapter and must never
 cross into core or view models.
 
+Sprint 8 narrows the first private adapter proof to WAV input and AAC audio in an
+M4A container. The development adapter design must use typed JNI calls rather
+than shell execution, write only to `IOutputStorage` temporary output, report
+normalized progress, honor cancellation, validate the resulting container/audio
+stream, and finalise only through the existing no-overwrite boundary.
+
+No adapter is present while the NDK/CMake/source prerequisite gate in
+`ANDROID_TRANSCODING_POC.md` is blocked. Local native artifacts must remain
+outside the repository and must never be packaged for distribution.
+
 ## Future iOS native adapter boundary
 
 The iOS adapter will implement the same contracts using an approved Apple-native

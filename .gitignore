@@ -480,3 +480,19 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# MediaForge GenZ development-only native media work
+.native-local/
+native-work/
+ffmpeg-source/
+ffmpeg-build/
+ffmpeg-install/
+*.so
+*.aar
+*.apk
+*.apks
+*.aab
+*.xcframework
+*.framework
+*.dylib
+*.a

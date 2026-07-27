@@ -1,11 +1,13 @@
 # Transcoding Engine Decision
 
-**Status:** Not approved
-**Decision gate:** Must be completed before Sprint 6 can distribute or integrate
-any native transcoding binary.
+**Technical strategy:** Project-owned LGPL-only FFmpeg build
+**Approval status:** Pending legal, security, engineering, and release approval
+**Binary status:** Prohibited from the repository and distribution until every
+applicable release gate is complete.
 
 This document is an engineering and compliance checklist. It is not legal advice,
-and it does not claim that legal approval has been obtained.
+an LGPL compliance certification, or evidence that legal approval has been
+obtained.
 
 ## Why a maintained mobile engine is required
 
@@ -67,7 +69,10 @@ state that FFmpeg is primarily LGPL 2.1-or-later, while enabling optional GPL
 parts makes GPL apply to the resulting FFmpeg build. The exact configure flags and
 every linked dependency determine the effective obligations.
 
-An LGPL-only candidate must, at minimum:
+MediaForge GenZ has selected an LGPL-only FFmpeg build as its technical direction.
+This narrows future investigation; it does not approve a build, authorize binary
+distribution, or establish that a particular configuration satisfies the LGPL.
+An eventual candidate must, at minimum:
 
 - exclude `--enable-gpl` and `--enable-nonfree`;
 - document static/dynamic linking choices for each mobile platform;
@@ -104,10 +109,19 @@ engine release must have a versioned record containing:
 These records must be regenerated for every engine upgrade or configuration
 change.
 
-## Sprint 6 approval checklist
+The exact build constraints and evidence schema are defined in
+[`FFMPEG_MOBILE_BUILD_SPEC.md`](FFMPEG_MOBILE_BUILD_SPEC.md). Future dependencies
+must be recorded using
+[`THIRD_PARTY_DEPENDENCY_INVENTORY.md`](THIRD_PARTY_DEPENDENCY_INVENTORY.md), and
+binary distribution remains blocked by
+[`RELEASE_COMPLIANCE_CHECKLIST.md`](RELEASE_COMPLIANCE_CHECKLIST.md).
 
-All boxes remain deliberately unchecked.
+## Binary integration and distribution approval checklist
 
+Only the technical-strategy selection is recorded as complete. Approval and
+evidence gates remain deliberately unchecked.
+
+- [x] LGPL-only strategy is selected as a technical direction, not as legal approval.
 - [ ] Required conversion formats and codec matrix are approved.
 - [ ] Platform-native Android coverage and limitations are documented.
 - [ ] Platform-native iOS coverage and limitations are documented.
@@ -115,7 +129,7 @@ All boxes remain deliberately unchecked.
 - [ ] Android/iOS architecture and minimum-version support are verified.
 - [ ] Cancellation, progress, sandboxed input, and temporary-output APIs are proven.
 - [ ] Exact dependency graph and licenses are recorded.
-- [ ] LGPL-only versus GPL configuration is explicitly selected.
+- [ ] The exact LGPL-only configuration and generated configuration evidence are reviewed.
 - [ ] Static/dynamic linking implications are reviewed for Android and iOS.
 - [ ] Corresponding-source and relinking obligations are documented.
 - [ ] Required third-party notices are drafted and reviewed.
@@ -124,7 +138,7 @@ All boxes remain deliberately unchecked.
 - [ ] SBOM and vulnerability review are complete.
 - [ ] App-store policy review is complete.
 - [ ] Legal review is complete and recorded.
-- [ ] Engineering, security, product, and legal owners approve Sprint 6.
+- [ ] Engineering, security, product, release, and legal owners approve binary distribution.
 
 Until every applicable gate is approved, the repository must remain binary-free
 and conversion execution must remain unavailable.

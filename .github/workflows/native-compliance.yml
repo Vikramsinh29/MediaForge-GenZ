@@ -1,0 +1,19 @@
+name: Native compliance guard
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-native-compliance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Reject prohibited native configuration and artifacts
+        shell: pwsh
+        run: ./scripts/validate-native-compliance.ps1

@@ -61,6 +61,30 @@ The Android/iOS adapter and finalisation flow are documented in
 [`docs/MOBILE_MEDIA_ENGINE_ARCHITECTURE.md`](docs/MOBILE_MEDIA_ENGINE_ARCHITECTURE.md).
 No legal approval is claimed.
 
+## LGPL Mobile Engine Readiness
+
+Sprint 6 records an LGPL-only FFmpeg build as the selected technical direction,
+pending legal, security, engineering, and release approval. It adds no FFmpeg
+source, package, binary, native implementation, or conversion execution.
+
+The future build and evidence requirements are defined in
+[`docs/FFMPEG_MOBILE_BUILD_SPEC.md`](docs/FFMPEG_MOBILE_BUILD_SPEC.md).
+[`docs/THIRD_PARTY_DEPENDENCY_INVENTORY.md`](docs/THIRD_PARTY_DEPENDENCY_INVENTORY.md)
+provides the dependency record template, and
+[`docs/RELEASE_COMPLIANCE_CHECKLIST.md`](docs/RELEASE_COMPLIANCE_CHECKLIST.md)
+keeps native binary distribution blocked until all applicable evidence and
+approvals are complete.
+
+The repository validation script rejects prohibited GPL/nonfree FFmpeg
+configuration flags and native binary artifacts:
+
+```powershell
+./scripts/validate-native-compliance.ps1
+```
+
+The guard is a technical control, not legal advice, compliance certification, or
+production-readiness approval.
+
 ## Build Android
 
 ```powershell
